@@ -18,7 +18,7 @@ public class MainController {
     // @FXML private Button btnCatalogo;
 
     /**
-     * Este método se llama automáticamente DESPUÉS de que se carga el FXML.
+     * Esta funcion se llama automáticamente DESPUÉS de que se carga el FXML.
      * Es perfecto para cargar la vista por defecto (el catálogo).
      */
     @FXML
@@ -48,7 +48,7 @@ public class MainController {
     }
 
     /**
-     * Método ayudante para cargar un FXML en el área de contenido principal.
+     * Funcion ayudante para cargar un FXML en el área de contenido principal.
      */
     private void loadView(String fxmlPath) {
         try {
