@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.layout.AnchorPane?>
+
+<AnchorPane prefHeight="600.0" prefWidth="800.0"
+            xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.calmasalud.hubi.ui.controller.GestorCatalogoController">
+    <children>
+
+        <ListView fx:id="listaArchivos" layoutX="14.0" layoutY="14.0"
+                  prefHeight="500.0" prefWidth="250.0" />
+
+        <Button fx:id="btnAgregar" layoutX="14.0" layoutY="530.0"
+                text="AGREGAR" onAction="#handleAgregarClick" />
+
+        <Button fx:id="btnEliminar" layoutX="100.0" layoutY="530.0"
+                text="ELIMINAR" />
+
+        <Button fx:id="btnExtraer" layoutX="190.0" layoutY="530.0"
+                text="EXTRAER PARÁMETROS" />
+
+    </children>
+</AnchorPane>
