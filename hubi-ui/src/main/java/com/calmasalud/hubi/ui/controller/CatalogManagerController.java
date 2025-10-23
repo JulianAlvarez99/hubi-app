@@ -2,6 +2,8 @@ package com.calmasalud.hubi.ui.controller;
 
 
 import com.calmasalud.hubi.core.service.CatalogService;
+import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -11,10 +13,13 @@ import javafx.scene.layout.StackPane;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.util.Callback;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class CatalogManagerController {
 
@@ -29,15 +34,15 @@ public class CatalogManagerController {
 
     // --- Componentes del explorador actualizados ---
     @FXML
-    private TreeView<File> folderTreeView; // Antes era TreeTableView
+    private TreeView<File> folderTreeView;
     @FXML
-    private TableView<?> fileTableView;  // Nuevo
+    private TableView<File> fileTableView;
     @FXML
-    private TableColumn<?, ?> colNombre;
+    private TableColumn<File, String> colNombre;
     @FXML
-    private TableColumn<?, ?> colTamaño;
+    private TableColumn<File, String> colTamaño;
     @FXML
-    private TableColumn<?, ?> colFechaMod;
+    private TableColumn<File, String> colFechaMod;
     // --- Fin de componentes actualizados ---
 
     @FXML
@@ -83,9 +88,81 @@ public class CatalogManagerController {
         // 3. Cuando se seleccione una carpeta, poblar 'fileTableView'
         //    con los archivos de esa carpeta.
         // Se ejecuta al cargar la vista
+        folderTreeView.setCellFactory(new Callback<TreeView<File>, TreeCell<File>>() {
+            @Override
+            public TreeCell<File> call(TreeView<File> param) {
+                return new TreeCell<File>() {
+                    @Override
+                    protected void updateItem(File item, boolean empty) {
+                        super.updateItem(item, empty);
+
+                        if (empty || item == null) {
+                            setText(null);
+                        } else if (item.equals(REPOSITORIO_BASE)) {
+                            // Etiqueta para el nodo raíz
+                            setText("Repositorio Master");
+                        } else {
+                            // CLAVE: Usa item.getName() para mostrar solo el nombre (el archivo o carpeta)
+                            setText(item.getName());
+                        }
+                    }
+                };
+            }
+        });
+
+        // 2. LISTENER DEL TREEVIEW
+        folderTreeView.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue != null) {
+                File selectedFile = newValue.getValue();
+
+                if (selectedFile != null && selectedFile.isDirectory()) {
+                    cargarDetallesCarpeta(selectedFile);
+                } else {
+                    fileTableView.getItems().clear();
+                }
+            }
+        });
+
+        // 3. INICIALIZACIÓN DE COLUMNAS DE LA TABLEVIEW
+        colNombre.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getName()));
+        colTamaño.setCellValueFactory(cellData -> {
+            long bytes = cellData.getValue().length();
+            String tamanoFormateado = formatSize(bytes);
+            return new ReadOnlyObjectWrapper<>(tamanoFormateado);
+        });
+        colFechaMod.setCellValueFactory(cellData -> {
+            long timestamp = cellData.getValue().lastModified();
+            Date fecha = new Date(timestamp);
+            SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+            return new ReadOnlyObjectWrapper<>(sdf.format(fecha));
+        });
+
+        // 4. CARGA INICIAL DE DATOS
         refrescarVistaCatalogo();
     }
+    private String formatSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        int exp = (int) (Math.log(bytes) / Math.log(1024));
+        String pre = ("KMGTPE").charAt(exp - 1) + "";
+        return String.format("%.1f %sB", bytes / Math.pow(1024, exp), pre);
+    }
+    private void cargarDetallesCarpeta(File directorio) {
+        fileTableView.getItems().clear(); // Limpia la tabla antes de cargar
 
+        File[] archivos = directorio.listFiles();
+
+        if (archivos != null) {
+
+            for (File f : archivos) {
+                // Puedes filtrar por extensión aquí si solo quieres archivos .stl/.3mf en la tabla
+                if (f.isFile() && (f.getName().endsWith(".stl") || f.getName().endsWith(".3mf"))) {
+                    fileTableView.getItems().add(f);
+                }
+                // Si el archivo es una subcarpeta, la ignoramos para esta tabla
+            }
+        }
+        // Si la tabla queda vacía, el mensaje "Tabla sin contenido" se mostrará automáticamente
+    }
     /**
      * Implementa HU1 y RF1: Carga de archivos .stl y .3mf
      *
@@ -158,25 +235,31 @@ public class CatalogManagerController {
 
     }
     private TreeItem<File> createNode(final File f) {
-
-        // El objeto File que se usará para mostrar el nombre.
-        File displayFile;
-
-        // Si es la ruta base, usa una etiqueta amigable ("Repositorio Master").
-        if (f.equals(REPOSITORIO_BASE)) {
-            // Se crea un nuevo objeto File solo con la etiqueta de visualización,
-            // ya que el TreeView<File> usa toString() para mostrar el valor.
-            displayFile = new File("Repositorio Master");
-        } else {
-            // Para todos los demás archivos/directorios, se usará solo su nombre.
-            displayFile = new File(f.getName());
+        if (!f.isDirectory() && !f.equals(REPOSITORIO_BASE)) {
+            return null; // No crea un nodo para archivos
         }
-        TreeItem<File> root = new TreeItem<>(displayFile);
+        // El TreeItem contiene el objeto File ORIGINAL (f), la CellFactory se encarga de la visualización.
+        TreeItem<File> root = new TreeItem<>(f);
 
         if (f.isDirectory()) {
-            if (f.listFiles() != null && f.listFiles().length > 0) {
-                // Nodo 'dummy' para indicar que se puede expandir
-                root.getChildren().add(new TreeItem<>(null));
+            File[] children = f.listFiles();
+
+            if (children != null && children.length > 0) {
+                // Revisa si hay subdirectorios o archivos válidos dentro.
+                boolean hasVisibleChildren = false;
+                for (File childFile : children) {
+                    // Si hay al menos un directorio hijo, o un archivo que queremos ver en la tabla
+
+                    if (!childFile.getName().startsWith(".")) {
+                        hasVisibleChildren = true;
+                        break;
+                    }
+                }
+
+                if (hasVisibleChildren) {
+                    // Nodo 'dummy' para indicar que se puede expandir
+                    root.getChildren().add(new TreeItem<>(null));
+                }
             }
 
             root.setExpanded(false);
@@ -188,13 +271,17 @@ public class CatalogManagerController {
                     // Iterar sobre los archivos reales (usando la ruta completa 'f')
                     for (File childFile : f.listFiles()) {
                         if (!childFile.getName().startsWith(".")) {
-                            root.getChildren().add(createNode(childFile));
+
+                            // Si el createNode() devuelve null, no se agrega.
+                            TreeItem<File> childNode = createNode(childFile);
+                            if (childNode != null) {
+                                root.getChildren().add(childNode);
+                            }
                         }
                     }
                 }
             });
         }
-
         return root;
     }
     // (Aquí irán los handlers para btnEliminar y btnExtraer)
