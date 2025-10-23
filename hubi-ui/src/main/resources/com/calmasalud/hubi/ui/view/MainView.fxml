@@ -1,42 +1,58 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.layout.BorderPane?>
-<?import javafx.scene.layout.StackPane?>
-<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
 
-<BorderPane prefHeight="768.0" prefWidth="1024.0"
-            xmlns="http://javafx.com/javafx/21"
-            xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.calmasalud.hubi.ui.controller.MainController">
+<BorderPane prefHeight="800.0" prefWidth="1280.0" stylesheets="@../css/styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.MainController">
+
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="15.0" styleClass="header-bar" BorderPane.alignment="CENTER">
+            <children>
+                <ImageView fitHeight="80.0" fitWidth="53.0" pickOnBounds="true" preserveRatio="true">
+                    <image>
+                        <Image url="@../logo/Logo_ARCADIA_sinNombre.png" />
+                    </image>
+                </ImageView>
+                <Label styleClass="header-logo" text="HUBI" />
+
+                <Region HBox.hgrow="ALWAYS" />
+
+                <VBox alignment="CENTER_LEFT">
+                    <children>
+                        <Label styleClass="header-title" text="Sistema HUBI" />
+                        <Label fx:id="lblDateTime" styleClass="header-datetime" text="dd/mm/yyyy hh:mm:ss" />
+                    </children>
+                </VBox>
+            </children>
+        </HBox>
+    </top>
 
     <left>
-        <VBox prefWidth="200.0" style="-fx-background-color: #f4f4f4; -fx-padding: 10;">
+        <VBox prefWidth="220.0" spacing="10.0" styleClass="menu-bar" BorderPane.alignment="CENTER">
             <children>
-                <Button fx:id="btnCatalogo" maxWidth="1.7976931348623157E308"
-                        text="GESTOR DE CATÁLOGO" onAction="#handleMenuCatalogo">
-                    <VBox.margin>
-                        <Insets bottom="10.0" />
-                    </VBox.margin>
-                </Button>
+                <fx:define>
+                    <ToggleGroup fx:id="menuToggleGroup" />
+                </fx:define>
 
-                <Button fx:id="btnInventario" maxWidth="1.7976931348623157E308"
-                        text="INVENTARIO" onAction="#handleMenuInventario">
-                    <VBox.margin>
-                        <Insets bottom="10.0" />
-                    </VBox.margin>
-                </Button>
+                <ToggleButton fx:id="btnCatalogo" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleMenuCatalogo" selected="true" styleClass="menu-toggle-button" text="GESTOR DE CATÁLOGO" toggleGroup="$menuToggleGroup" />
 
-                <Button fx:id="btnReportes" maxWidth="1.7976931348623157E308"
-                        text="REPORTES Y SEGUIMIENTO" onAction="#handleMenuReportes" />
+                <ToggleButton fx:id="btnInventario" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleMenuInventario" styleClass="menu-toggle-button" text="INVENTARIO" toggleGroup="$menuToggleGroup" />
+
+                <ToggleButton fx:id="btnReportes" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleMenuReportes" styleClass="menu-toggle-button" text="REPORTES Y SEGUIMIENTO" toggleGroup="$menuToggleGroup" />
             </children>
         </VBox>
     </left>
 
     <center>
-        <StackPane fx:id="mainContentArea" style="-fx-background-color: #ffffff;"
-                   BorderPane.alignment="CENTER" />
+        <StackPane fx:id="mainContentArea" style="-fx-background-color: -fx-color-bg-light;" BorderPane.alignment="CENTER" />
     </center>
 
+    <bottom>
+        <AnchorPane styleClass="footer-bar" BorderPane.alignment="CENTER">
+            <children>
+                <Label styleClass="footer-text" text="ARCADIA_HUBI v1.0.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="5.0" AnchorPane.topAnchor="0.0" />
+            </children>
+        </AnchorPane>
+    </bottom>
 </BorderPane>

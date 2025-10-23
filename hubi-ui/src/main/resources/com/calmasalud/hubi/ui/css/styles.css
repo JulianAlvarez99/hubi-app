@@ -1,0 +1,121 @@
+/* Definición de la paleta de colores y fuente base */
+.root {
+    /* Paleta de colores */
+    -fx-color-primary: #415D76;    /* Principal (oscuro) */
+    -fx-color-secondary: #A3BCC4;  /* Secundario (medio) */
+    -fx-color-accent: #F9ADB1;     /* Acento (rosa) */
+    -fx-color-bg-light: #FFFFFF;   /* Fondo claro */
+    -fx-color-bg-medium: #E8EAF2;  /* Fondo medio (gris claro) */
+    -fx-color-bg-logo: #D9C8CA;    /* Fondo oscuro (usado en el mockup) */
+    -fx-color-border: #D9D9D9;     /* Bordes */
+    -fx-color-text-dark: #000000;   /* Texto oscuro */
+    -fx-color-text-light: #FFFFFF; /* Texto claro */
+    -fx-color-text-muted: #9DA2B2; /* Texto grisáceo/apagado */
+    -fx-color-bg-light_blue: #D6F4FD; /*Fondo celeste aplicacion*/
+
+    /* Fuente principal de la aplicación */
+    -fx-font-family: "Maven Pro";
+    -fx-font-size: 14px;
+}
+
+/* --- Estilos del MainView.fxml --- */
+
+/* Encabezado superior */
+.header-bar {
+    -fx-background-color: -fx-color-bg-light;
+    -fx-padding: 10px 20px;
+    -fx-border-width: 0 0 1px 0;
+    -fx-border-color: -fx-color-border;
+}
+
+.header-logo {
+    -fx-font-size: 35px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-color-primary;
+}
+
+.header-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-color-primary;
+}
+
+.header-datetime {
+    -fx-font-size: 14px;
+    -fx-text-fill: -fx-color-text-muted;
+}
+
+/* Barra de menú izquierda */
+.menu-bar {
+    -fx-background-color: #f4f4f4;
+    -fx-padding: 10px;
+    -fx-border-width: 0 1px 0 0;
+    -fx-border-color: -fx-color-border;
+}
+
+.menu-toggle-button {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-color-primary;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 10px 15px;
+    -fx-background-radius: 6;
+}
+
+/* Estilo para el botón SELECCIONADO */
+.menu-toggle-button:selected {
+    -fx-background-color: #D9C8CA; /* Tono más oscuro (de la paleta) */
+    -fx-text-fill: #000000;
+}
+
+.menu-toggle-button:hover {
+    -fx-background-color: -fx-color-bg-medium;
+}
+
+/* Pie de página */
+.footer-bar {
+    -fx-background-color: -fx-color-bg-light;
+    -fx-padding: 5px 10px;
+    -fx-border-width: 1px 0 0 0;
+    -fx-border-color: -fx-color-border;
+}
+
+.footer-text {
+    -fx-font-size: 11px;
+    -fx-text-fill: -fx-color-text-muted; /* Color grisáceo */
+}
+
+/* --- Estilos del GestorCatalogoView.fxml --- */
+
+.module-container {
+    -fx-padding: 15px;
+    -fx-background-color: -fx-color-bg-light;
+}
+
+/* Estilo para los botones de acción (Agregar, Eliminar...) */
+.action-button {
+    -fx-background-color: -fx-color-primary;
+    -fx-text-fill: -fx-color-text-light;
+    -fx-font-weight: bold;
+    -fx-background-radius: 4;
+}
+.action-button:hover {
+    -fx-background-color: derive(-fx-color-primary, 20%);
+}
+
+.section-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-color-primary;
+}
+
+/* Placeholder para el visor 3D */
+.viewer-3d-placeholder {
+    -fx-border-color: -fx-color-border;
+    -fx-border-width: 2px;
+    -fx-border-style: dashed;
+    -fx-background-color: -fx-color-bg-medium;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
