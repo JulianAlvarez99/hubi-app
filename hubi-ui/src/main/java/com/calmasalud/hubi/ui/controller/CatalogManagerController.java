@@ -1,6 +1,8 @@
 package com.calmasalud.hubi.ui.controller;
 
 
+
+import com.calmasalud.hubi.core.model.Product;
 import com.calmasalud.hubi.core.service.CatalogService;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleStringProperty;
@@ -82,11 +84,7 @@ public class CatalogManagerController {
     public void initialize() {
         System.out.println("Controlador de Catálogo (v2.1 con Tree/Table) inicializado.");
 
-        // (Lógica futura):
-        // 1. Cargar el árbol de carpetas en 'folderTreeView'
-        // 2. Añadir un listener a 'folderTreeView.getSelectionModel()'
-        // 3. Cuando se seleccione una carpeta, poblar 'fileTableView'
-        //    con los archivos de esa carpeta.
+        // (Lógica de inicialización del TreeView sin cambios)
         // Se ejecuta al cargar la vista
         folderTreeView.setCellFactory(new Callback<TreeView<File>, TreeCell<File>>() {
             @Override
@@ -124,12 +122,32 @@ public class CatalogManagerController {
         });
 
         // 3. INICIALIZACIÓN DE COLUMNAS DE LA TABLEVIEW
-        colNombre.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getName()));
-        colTamaño.setCellValueFactory(cellData -> {
-            long bytes = cellData.getValue().length();
-            String tamanoFormateado = formatSize(bytes);
-            return new ReadOnlyObjectWrapper<>(tamanoFormateado);
+
+        // --- COLUMNA NOMBRE: Ahora muestra el Name de la entidad Product ---
+        colNombre.setCellValueFactory(cellData -> {
+            File archivo = cellData.getValue();
+            // 1. Obtener el código único del nombre del archivo (sin extensión)
+            String fileName = archivo.getName();
+            String code = fileName.substring(0, fileName.lastIndexOf('.'));
+
+            // 2. Buscar el producto en la BD por el código único
+            Product product = catalogoService.getProductDetails(code);
+
+            // 3. Devolver el Nombre de la entidad o el nombre del archivo como fallback
+            String nameToShow = (product != null && product.getName() != null) ? product.getName() : fileName;
+
+            return new SimpleStringProperty(nameToShow);
         });
+
+        // --- COLUMNA TAMAÑO: Ahora muestra el CÓDIGO ÚNICO (RF8) ---
+        colTamaño.setCellValueFactory(cellData -> {
+            File archivo = cellData.getValue();
+            // El código único es el nombre del archivo menos la extensión
+            String code = archivo.getName().substring(0, archivo.getName().lastIndexOf('.'));
+            return new ReadOnlyObjectWrapper<>(code);
+        });
+
+        // --- COLUMNA FECHA MODIFICACIÓN (Sin cambios) ---
         colFechaMod.setCellValueFactory(cellData -> {
             long timestamp = cellData.getValue().lastModified();
             Date fecha = new Date(timestamp);
@@ -140,12 +158,15 @@ public class CatalogManagerController {
         // 4. CARGA INICIAL DE DATOS
         refrescarVistaCatalogo();
     }
+
+    // El método formatSize ya no se usa para colTamaño, pero se mantiene por si se usa en otro lugar.
     private String formatSize(long bytes) {
         if (bytes < 1024) return bytes + " B";
         int exp = (int) (Math.log(bytes) / Math.log(1024));
         String pre = ("KMGTPE").charAt(exp - 1) + "";
         return String.format("%.1f %sB", bytes / Math.pow(1024, exp), pre);
     }
+
     private void cargarDetallesCarpeta(File directorio) {
         fileTableView.getItems().clear(); // Limpia la tabla antes de cargar
 
@@ -154,8 +175,9 @@ public class CatalogManagerController {
         if (archivos != null) {
 
             for (File f : archivos) {
-                // Puedes filtrar por extensión aquí si solo quieres archivos .stl/.3mf en la tabla
-                if (f.isFile() && (f.getName().endsWith(".stl") || f.getName().endsWith(".3mf"))) {
+                // Filtramos por archivos .stl/.3mf y también por la extensión .gcode (si se implementó)
+                String filename = f.getName().toLowerCase();
+                if (f.isFile() && (filename.endsWith(".stl") || filename.endsWith(".3mf") || filename.endsWith(".gcode"))) {
                     fileTableView.getItems().add(f);
                 }
                 // Si el archivo es una subcarpeta, la ignoramos para esta tabla
@@ -163,6 +185,7 @@ public class CatalogManagerController {
         }
         // Si la tabla queda vacía, el mensaje "Tabla sin contenido" se mostrará automáticamente
     }
+
     /**
      * Implementa HU1 y RF1: Carga de archivos .stl y .3mf
      *
@@ -174,14 +197,15 @@ public class CatalogManagerController {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Seleccionar Archivos de Diseño/Impresión (.stl, .3mf)");
 
-        // Agregar los filtros de extensión (RF1) - Tomado del código anterior
+        // Agregar los filtros de extensión (RF1) - Incluyendo .gcode
         fileChooser.getExtensionFilters().addAll(
                 // Filtro general (para comodidad del usuario)
-                new FileChooser.ExtensionFilter("Modelos 3D (.stl, .3mf)", "*.stl", "*.3mf"),
+                new FileChooser.ExtensionFilter("Modelos 3D y GCode", "*.stl", "*.3mf", "*.gcode"),
 
                 // Filtros específicos (opcionales, pero útiles para la interfaz del SO)
                 new FileChooser.ExtensionFilter("Archivos STL", "*.stl"),
-                new FileChooser.ExtensionFilter("Archivos 3MF", "*.3mf")
+                new FileChooser.ExtensionFilter("Archivos 3MF", "*.3mf"),
+                new FileChooser.ExtensionFilter("Archivos GCode", "*.gcode")
         );
 
         File archivoSeleccionado = fileChooser.showOpenDialog(null);
@@ -196,6 +220,7 @@ public class CatalogManagerController {
             }
         }
     }
+
     // Método para lanzar la ventana modal
     private void mostrarModalTipoCarga(File archivo) throws IOException {
         // Carga el FXML de la ventana modal
@@ -218,6 +243,7 @@ public class CatalogManagerController {
             refrescarVistaCatalogo(); // Llama al método de actualización si hubo éxito
         }
     }
+
     public void refrescarVistaCatalogo() {
         System.out.println("✅ El Repositorio Master ha cambiado. Refrescando la vista del catálogo...");
         if (REPOSITORIO_BASE.exists()) {
@@ -234,6 +260,7 @@ public class CatalogManagerController {
         }
 
     }
+
     private TreeItem<File> createNode(final File f) {
         if (!f.isDirectory() && !f.equals(REPOSITORIO_BASE)) {
             return null; // No crea un nodo para archivos

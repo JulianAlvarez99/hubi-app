@@ -48,7 +48,7 @@
                                 <TableView fx:id="fileTableView" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
                                     <columns>
                                         <TableColumn fx:id="colNombre" prefWidth="100.0" text="Nombre" />
-                                        <TableColumn fx:id="colTamaño" prefWidth="75.0" text="Tamaño" />
+                                        <TableColumn fx:id="colTamaño" prefWidth="75.0" text="Código Único" />
                                         <TableColumn fx:id="colFechaMod" prefWidth="120.0" text="Fecha Modificación" />
                                     </columns>
                                     <columnResizePolicy>
