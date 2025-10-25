@@ -9,7 +9,7 @@ import javafx.stage.Stage;
 
 import java.io.IOException;
 import java.util.Objects; // Importar Objects
-
+import com.calmasalud.hubi.persistence.db.SQLiteManager;
 public class Main extends Application {
 
     @Override
@@ -25,13 +25,13 @@ public class Main extends Application {
             e.printStackTrace();
         }
 
-
+        SQLiteManager.initializeDatabase();
         // 2. Carga el archivo FXML de la vista principal
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/MainView.fxml"));
         Parent root = loader.load();
 
         // 3. Configura la escena
-        Scene scene = new Scene(root, 1280, 800); // Tamaño inicial más grande
+        Scene scene = new Scene(root, 900, 700); // Tamaño inicial más grande
 
         // 4. Aplicar la hoja de estilos CSS
         try {
@@ -46,8 +46,8 @@ public class Main extends Application {
         // 5. Configura el escenario (la ventana)
         primaryStage.setTitle("Sistema HUBI v1.0"); // Título en la barra de la ventana
         primaryStage.setScene(scene);
-        primaryStage.setMinWidth(1024); // Definir tamaños mínimos
-        primaryStage.setMinHeight(900);
+        primaryStage.setMinWidth(900); // Definir tamaños mínimos
+        primaryStage.setMinHeight(600);
         primaryStage.show();
     }
 
