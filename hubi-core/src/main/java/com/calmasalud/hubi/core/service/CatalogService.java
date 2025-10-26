@@ -2,15 +2,13 @@ package com.calmasalud.hubi.core.service;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.*;
+
 import com.calmasalud.hubi.core.model.Product;
 import com.calmasalud.hubi.core.model.Supply;
 import com.calmasalud.hubi.core.repository.IProductRepository;
-//Tuve que comentar esto (CAMI)
-//import com.calmasalud.hubi.persistence.repository.ProductRepositorySQLite;
+import com.calmasalud.hubi.persistence.repository.ProductRepositorySQLite;
+import java.util.Comparator;
 
 public class CatalogService {
     private final IProductRepository productRepository;
@@ -23,15 +21,14 @@ public class CatalogService {
     private static final Path REPOSITORIO_BASE =
             Paths.get(System.getProperty("user.home"), "SistemaHUBI", "RepositorioArchivos");
 
-    // El color por defecto se define aquí.
+    //Color por defecto
     private static final String COLOR_POR_DEFECTO = "ROJO";
-    public Product getProductDetails(String code) {
-        return productRepository.findByCode(code);
-    }
+
     /**
      * Implementa la lógica de RF8 para generar códigos únicos.
+     *  FORMATO: [PROD 3 letras][COLOR 3 letras][CORRELATIVO]
      */
-    public String generateProductCode(String productName, String color, boolean isPart) {
+    public String generateProductCode(String productName, String color) {
 
         // --- RF8: Validación de entradas mínimas ---
         if (productName == null || productName.length() < 3) {
@@ -46,14 +43,11 @@ public class CatalogService {
 
         String prefijoSeisLetras = prefijoProd + prefijoColor;
 
-        // Tipo: '0' si es una pieza, '1' si es un producto completo (RF8)
-        String tipo = isPart ? "0" : "1";
-
         // RF8: Obtiene el siguiente correlativo único de la base de datos (SQLite)
         String correlativo = productRepository.getNextCorrelative(prefijoSeisLetras);
 
         // Retorna el código completo
-        return String.format("%s-%s-%s", prefijoSeisLetras, tipo, correlativo);
+        return String.format("%s%s", prefijoSeisLetras, correlativo);
     }
 
     public File copiarArchivoARepositorio(File archivoOrigen) throws IOException {
@@ -79,17 +73,17 @@ public class CatalogService {
         return rutaDestinoFinal.toFile();
     }
 
-    // Método 1: Para Carga como PRODUCTO (Se elimina 'Supply supply' y se usa el valor por defecto)
+    // Método 1: Para Carga como PRODUCTO (Crea la carpeta y la primera pieza)
     public void procesarCargaProducto(File archivoOrigen, String nombreProducto) throws IOException {
 
         // Generar el código único (RF8) usando el COLOR POR DEFECTO
-        String codigoUnicoProducto = generateProductCode(nombreProducto, COLOR_POR_DEFECTO, false);
-        String extension = getFileExtension(archivoOrigen.getName());
+        String codigoUnicoProducto = generateProductCode(nombreProducto, COLOR_POR_DEFECTO);
+        String nombreArchivoOriginal = archivoOrigen.getName(); // <-- Captura el nombre del archivo
+        String extension = getFileExtension(nombreArchivoOriginal);
 
-        // Crear el objeto Product (Ahora con la extensión)
-        Product newProduct = new Product(codigoUnicoProducto, nombreProducto, extension); // <--- CONSTRUCTOR MODIFICADO
-
-        // Persistir el objeto en la base de datos (Primero, para asegurar la atomicidad del código)
+        // Crear el objeto Product
+        Product newProduct = new Product(codigoUnicoProducto, nombreArchivoOriginal, extension);
+        // Persistir el objeto en la base de datos
         long id = productRepository.save(newProduct);
         if (id == -1) {
             throw new IOException("Error: No se pudo guardar el producto en la base de datos.");
@@ -97,7 +91,6 @@ public class CatalogService {
 
         // Mover el archivo al repositorio físico (usando el código único como nombre)
         Path directorioProducto = REPOSITORIO_BASE.resolve(nombreProducto);
-
         // Crear el directorio
         Files.createDirectories(directorioProducto);
         String nombreArchivoFinal = codigoUnicoProducto + extension;
@@ -106,32 +99,27 @@ public class CatalogService {
         Files.copy(archivoOrigen.toPath(), directorioProducto.resolve(nombreArchivoFinal), StandardCopyOption.REPLACE_EXISTING);
     }
 
-    // Método 2: Para Carga como PIEZA
+    // Método 2: Para Carga como PIEZA (Asociación a un Producto existente)
     public void procesarCargaPieza(File archivoOrigen, String rutaODiretorio) throws IOException {
 
         Path directorioDestino;
         File posibleDirectorio = new File(rutaODiretorio);
         String nombreProducto;
-        String nombreArchivoOriginal = archivoOrigen.getName();
+        String nombreArchivoOriginal = archivoOrigen.getName(); // <-- Captura el nombre del archivo
 
-        // A. Si el usuario seleccionó un directorio existente (ruta completa)
-        if (posibleDirectorio.isDirectory()) {
-            directorioDestino = posibleDirectorio.toPath();
-            nombreProducto = posibleDirectorio.getName();
-        }
-        // B. Si el usuario ingresó un nombre de producto NUEVO (ruta corta)
-        else {
-            // Lógica de "primera pieza" (crea el directorio)
-            directorioDestino = REPOSITORIO_BASE.resolve(rutaODiretorio);
-            Files.createDirectories(directorioDestino);
-            nombreProducto = rutaODiretorio;
+        if (!posibleDirectorio.isDirectory()) {
+            throw new IllegalArgumentException("La ruta proporcionada para la pieza no es un directorio válido de Producto.");
         }
 
-        // Generar el código único (RF8) para la Pieza usando el COLOR POR DEFECTO
-        String codigoUnicoPieza = generateProductCode(nombreProducto, COLOR_POR_DEFECTO, true);
+        directorioDestino = posibleDirectorio.toPath();
+        nombreProducto = posibleDirectorio.getName();
+
+        // Generar el código único (RF8) para la Pieza
+        String codigoUnicoPieza = generateProductCode(nombreProducto, COLOR_POR_DEFECTO);
         String extension = getFileExtension(archivoOrigen.getName());
-        // Crear el objeto Product (la pieza es una entidad con su propio código único)
-        Product newPiece = new Product(codigoUnicoPieza, nombreArchivoOriginal + " (Pieza)", extension);
+
+        // Crear el objeto Product
+        Product newPiece = new Product(codigoUnicoPieza, nombreArchivoOriginal, extension);
         // Persistir el objeto en la base de datos
         long id = productRepository.save(newPiece);
         if (id == -1) {
@@ -144,9 +132,7 @@ public class CatalogService {
         // Copia el archivo con el nombre único
         Files.copy(archivoOrigen.toPath(), directorioDestino.resolve(nombreArchivoFinal), StandardCopyOption.REPLACE_EXISTING);
     }
-
-    /**
-     * Función auxiliar para obtener la extensión de un archivo.
+     /* Función auxiliar para obtener la extensión de un archivo.
      */
     private String getFileExtension(String filename) {
         int dotIndex = filename.lastIndexOf('.');
@@ -155,33 +141,91 @@ public class CatalogService {
         }
         return filename.substring(dotIndex);
     }
-    public void eliminarObjeto(File objeto) throws IOException {
-        if (objeto == null || !objeto.exists()) {
-            throw new IOException("El objeto no existe o ya ha sido eliminado.");
+
+    /**
+     * Busca los detalles completos de un producto o pieza por su código único.
+     * @param code El código único (Ej: SOPROJ001)
+     * @return El objeto Product o null si no se encuentra.
+     */
+    public Product getProductDetails(String code) {
+        return productRepository.findByCode(code);
+    }
+    public void deletePiece(File pieceFile) throws IOException {
+        String fileName = pieceFile.getName();
+
+        // Safety check para asegurar que tiene formato de código único.
+        if (fileName.lastIndexOf('.') == -1) {
+            throw new IOException("Error: Archivo de pieza con formato de nombre inválido.");
         }
 
-        // IMPORTANTE: Manejar la eliminación recursiva si es un directorio (Producto)
-        if (objeto.isDirectory()) {
-            // Lógica para eliminar el contenido del directorio antes de eliminar el directorio mismo.
-            eliminarDirectorioRecursivo(objeto);
+        String code = fileName.substring(0, fileName.lastIndexOf('.'));
+        Path parentPath = pieceFile.getParentFile().toPath(); // Obtenemos la carpeta del Producto
+
+        // 1. Eliminar de la BD
+        productRepository.deleteByCode(code);
+
+        // 2. Eliminar del Disco
+        if (pieceFile.exists()) {
+            Files.delete(pieceFile.toPath());
+            System.out.println("✅ Pieza eliminada del disco y BD: " + code);
         } else {
-            // Eliminar el archivo (Pieza)
-            if (!objeto.delete()) {
-                throw new IOException("Fallo al eliminar el archivo: " + objeto.getAbsolutePath());
+            System.out.println("⚠️ Advertencia: Pieza eliminada de BD, pero archivo no encontrado: " + code);
+        }
+
+        // 3. NUEVA LÓGICA: ELIMINAR DIRECTORIO PADRE SI QUEDA VACÍO
+
+        if (pieceFile.getParentFile().exists()) {
+            // Verificamos si el directorio está vacío
+            boolean isEmpty = true;
+            try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(parentPath)) {
+                if (dirStream.iterator().hasNext()) {
+                    isEmpty = false;
+                }
+            }
+
+            if (isEmpty) {
+                Files.delete(parentPath);
+                System.out.println("✅ Carpeta de Producto vacía eliminada: " + parentPath.getFileName());
             }
         }
     }
-    private void eliminarDirectorioRecursivo(File directorio) throws IOException {
-        if (directorio.isDirectory()) {
-            File[] children = directorio.listFiles();
-            if (children != null) {
-                for (File child : children) {
-                    eliminarDirectorioRecursivo(child);
-                }
-            }
+
+    /**
+     * Elimina un Producto completo (todas sus piezas, la carpeta, y los registros de la BD).
+     * El borrado se basa en los archivos encontrados en el directorio físico.
+     * @param productDirectory Directorio del producto a eliminar.
+     */
+    public void deleteProduct(File productDirectory) throws IOException {
+
+        if (!productDirectory.exists() || !productDirectory.isDirectory()) {
+            throw new IOException("Error: El directorio del producto no existe o no es una carpeta.");
         }
-        if (!directorio.delete()) {
-            throw new IOException("Fallo al eliminar el directorio: " + directorio.getAbsolutePath());
-        }
+
+        // 1. Recorrer el directorio y eliminar cada pieza de la BD
+        // Hacemos el borrado de la BD primero, por si falla el borrado físico, no quedan registros huérfanos.
+        Files.walk(productDirectory.toPath())
+                .filter(Files::isRegularFile) // Solo nos interesan los archivos
+                .forEach(path -> {
+                    File pieceFile = path.toFile();
+                    String fileName = pieceFile.getName();
+
+                    // Intentamos extraer el código único para borrar el registro de la BD
+                    try {
+                        String code = fileName.substring(0, fileName.lastIndexOf('.'));
+                        productRepository.deleteByCode(code);
+                    } catch (Exception e) {
+                        // Ignorar errores de archivos sin código único (archivos ocultos, etc.)
+                        System.out.println("⚠️ Archivo en carpeta ignorado para borrado de BD: " + fileName);
+                    }
+                });
+
+        // 2. Eliminar el Directorio Físico y todo su contenido (recursivamente)
+        Files.walk(productDirectory.toPath())
+                // Ordenamos por descendente para eliminar primero los archivos
+                .sorted(Comparator.reverseOrder())
+                .map(Path::toFile)
+                .forEach(File::delete);
+
+        System.out.println("✅ Producto (y todas sus piezas) eliminado: " + productDirectory.getName());
     }
 }

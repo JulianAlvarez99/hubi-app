@@ -114,5 +114,16 @@ public class ProductRepositorySQLite implements IProductRepository {
         }
         return product;
     }
+    @Override
+    public void deleteByCode(String code) {
+        String sql = "DELETE FROM products WHERE code = ?";
+        try (Connection conn = SQLiteManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, code);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("Error al eliminar producto/pieza por código: " + e.getMessage());
+        }
+    }
 
 }

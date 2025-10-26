@@ -5,6 +5,8 @@ import com.calmasalud.hubi.core.service.CatalogService;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
+import javafx.scene.control.Alert; // Importar Alert
+import javafx.scene.control.Alert.AlertType; // Importar AlertType
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
@@ -12,30 +14,31 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
-
+import javafx.scene.control.Label;
 import java.io.File;
 import java.io.IOException;
 
 public class TipoCargaController {
     private File archivoSeleccionado;
-    // Campos FXML que deben coincidir con  TipoCargaModal.fxml
-    @FXML
-    private RadioButton radioProducto;
-    @FXML
-    private RadioButton radioPieza;
-    @FXML
-    private TextField txtNombre;
-    @FXML
-    private Button btnBuscarDirectorio;
-    @FXML
-    private Label lblNombreArchivo;
-    @FXML
-    private Button btnBuscarArchivo;
-    @FXML
-    private VBox fileSearchContainer; // Contenedor que agrupa lblNombreArchivo y btnBuscarArchivo
-    //private CatalogService catalogoService = new CatalogService();
-    private CatalogService catalogoService;
-    private static String REPOSITORIO_BASE_PATH =
+
+    // CAMPOS FXML
+    @FXML private RadioButton radioProducto;
+    @FXML private RadioButton radioPieza;
+    @FXML private TextField txtNombre;
+    @FXML private Button btnBuscarDirectorio;
+
+    // NUEVO FXML: Botón para iniciar el diálogo de selección de archivo
+    @FXML private Button btnSeleccionarArchivo;
+    // NUEVO FXML: Etiqueta para mostrar el nombre del archivo seleccionado
+    @FXML private Label lblArchivoSeleccionado;
+
+    private File directorioProducto;
+    private final CatalogService catalogoService = new CatalogService();
+
+
+    // NUEVO: Atributo para recibir el directorio seleccionado del Gestor de Catálogo
+
+    private static final String REPOSITORIO_BASE_PATH =
             System.getProperty("user.home") + File.separator + "SistemaHUBI" + File.separator + "RepositorioArchivos";
     private boolean cargaExitosa = false;
 
@@ -43,12 +46,22 @@ public class TipoCargaController {
         this.archivoSeleccionado = archivo;
 
     }
-    public void setCatalogoService(CatalogService service) {
-        this.catalogoService = service;
+
+    // Setter para recibir la selección del TreeView (puede ser null)
+    public void setDirectorioProducto(File directorioProducto) {
+        this.directorioProducto = directorioProducto;
     }
+
     public boolean isCargaExitosa() {
         return cargaExitosa;
     }
+
+    @FXML
+    public void initialize() {
+        // Se establece el estado inicial: Producto (nuevo)
+        radioProducto.setSelected(true);
+        // Delay para asegurar que el setter directorioProducto haya sido llamado antes de la lógica
+        javafx.application.Platform.runLater(() -> actualizarEstadoCampos(radioProducto.isSelected()));
 
     public void initialize() {
         // Agregar Listener al radioProducto: Se activa cuando pasa de FALSE a TRUE.
@@ -79,24 +92,69 @@ public class TipoCargaController {
         this.archivoSeleccionado = null;
         lblNombreArchivo.setText("Ningún archivo seleccionado.");
     }
+    @FXML
+    private void handleSeleccionarArchivo() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Seleccionar Archivo de Diseño/Impresión (.stl, .3mf)");
 
-    private void actualizarEstadoCampos(boolean esProducto) {
-        // Se limpia el campo de texto al cambiar de opción.
-        txtNombre.clear();
+        // Agregar los filtros de extensión (RF1)
+        fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Modelos 3D y GCode", "*.stl", "*.3mf", "*.gcode"),
+                new FileChooser.ExtensionFilter("Archivos STL", "*.stl"),
+                new FileChooser.ExtensionFilter("Archivos 3MF", "*.3mf"),
+                new FileChooser.ExtensionFilter("Archivos GCode", "*.gcode")
+        );
 
-        if (esProducto) {
-            // MODO PRODUCTO (Nuevo Nombre)
-            txtNombre.setPromptText("Ingrese el nombre del nuevo producto (ej: SOPORTE)");
-            txtNombre.setEditable(true);
-            btnBuscarDirectorio.setVisible(false);
-        } else {
-            // MODO PIEZA (Producto Existente)
-            txtNombre.setPromptText("Seleccione el directorio del producto existente con el botón '...'");
-            txtNombre.setEditable(false);
-            btnBuscarDirectorio.setVisible(true);
+        File selected = fileChooser.showOpenDialog(null);
+
+        if (selected != null) {
+            this.archivoSeleccionado = selected;
+            lblArchivoSeleccionado.setText("Archivo: " + selected.getName()); // Mostrar al usuario
         }
     }
 
+    /**
+     * Función auxiliar para mostrar un cuadro de alerta.
+     */
+    private void mostrarAlerta(AlertType tipo, String titulo, String mensaje) {
+        Alert alert = new Alert(tipo);
+        alert.setTitle(titulo);
+        alert.setHeaderText(null);
+        alert.setContentText(mensaje);
+        alert.showAndWait();
+    }
+
+    private void actualizarEstadoCampos(boolean esProducto) {
+        // 1. Reseteo de campos comunes
+        txtNombre.clear();
+        btnBuscarDirectorio.setVisible(false); // Siempre oculto en este flujo
+        txtNombre.setDisable(false);
+        txtNombre.setEditable(true);
+
+        if (esProducto) {
+            // MODO PRODUCTO (Nuevo Nombre): SOLO SE PUEDE ESCRIBIR EL NOMBRE
+            txtNombre.setPromptText("Ingrese el nombre del nuevo producto (ej: SOPORTE)");
+
+        } else {
+            // MODO PIEZA (Asociado a Producto Existente)
+            txtNombre.setEditable(false);
+            txtNombre.setDisable(true);
+
+            if (directorioProducto != null && directorioProducto.isDirectory()) {
+                // Caso A: Producto SELECCIONADO -> pre-llenar
+                txtNombre.setText(directorioProducto.getAbsolutePath());
+                txtNombre.setPromptText("PIEZA: Asociada a " + directorioProducto.getName());
+
+            } else {
+                // Caso B: Producto NO SELECCIONADO -> Bloquear y mostrar requerimiento
+                txtNombre.setText("");
+                txtNombre.setPromptText("PIEZA: SELECCIONE un Producto en el Catálogo.");
+            }
+        }
+    }
+
+    // Se mantiene onBuscarProductoClicked para la compatibilidad del FXML si el botón se reusa.
+    @FXML
     public void onBuscarProductoClicked(ActionEvent event) {
         DirectoryChooser dirChooser = new DirectoryChooser();
         dirChooser.setTitle("Seleccionar Directorio de Producto Existente");
@@ -120,67 +178,61 @@ public class TipoCargaController {
         }
     }
 
-    public void handleBuscarArchivoClicked(ActionEvent event) {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Seleccionar Archivo de Diseño/Impresión (.stl, .3mf)");
-
-        // Configura los filtros (los que tenías en handleAgregarClick)
-        fileChooser.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter("Modelos 3D (.stl, .3mf)", "*.stl", "*.3mf"),
-                new FileChooser.ExtensionFilter("Archivos STL", "*.stl"),
-                new FileChooser.ExtensionFilter("Archivos 3MF", "*.3mf")
-        );
-
-        File selectedFile = fileChooser.showOpenDialog(btnBuscarArchivo.getScene().getWindow());
-
-        if (selectedFile != null) {
-            this.archivoSeleccionado = selectedFile;
-            lblNombreArchivo.setText(selectedFile.getName());
-
-            if (radioProducto.isSelected()) {
-                txtNombre.setText(selectedFile.getName().split("\\.")[0]);
-            }
-        }
-        // Adicionalmente, después de seleccionar el archivo:
-        if (this.archivoSeleccionado != null) {
-            // Bloquea los Radio Buttons para asegurar que no cambie de modo a mitad de carga
-            radioProducto.setDisable(true);
-            radioPieza.setDisable(true);
-        }
-    }
-
     @FXML
     public void onCargarClicked(ActionEvent event) {
 
         String valorIngresado = txtNombre.getText();
         boolean esPieza = radioPieza.isSelected();
 
-        //Validar que el archivo HAYA SIDO SELECCIONADO en el modal.
-        if (archivoSeleccionado == null) {
-
+        // MODIFICADO: 1. VALIDACIÓN GENERAL: Asegurar que se haya seleccionado un archivo AHORA
+        if (this.archivoSeleccionado == null) {
+            mostrarAlerta(AlertType.ERROR, "Error de Validación", "Debe seleccionar un archivo de diseño antes de continuar.");
             return;
         }
 
+        // 2. VALIDACIÓN ESPECÍFICA POR MODO
+        if (esPieza) {
+            // REGLA DE NEGOCIO: Piezas deben tener Producto seleccionado
+            if (directorioProducto == null || !directorioProducto.isDirectory()) {
+                mostrarAlerta(AlertType.ERROR, "Error de Asociación (RF8)",
+                        "Para cargar una PIEZA, debe seleccionar previamente la carpeta del PRODUCTO al que pertenece en el 'Repositorio Master'.");
+                return; // Detiene el proceso y muestra la alerta.
+            }
+            // Para PIEZA, valorIngresado es la ruta absoluta del directorioProducto,
+            // no necesitamos validar el texto ya que fue rellenado automáticamente.
+
+        } else {
+            // MODO PRODUCTO: Solo se necesita el nombre ingresado por el usuario.
+            if (valorIngresado == null || valorIngresado.trim().isEmpty()) {
+                mostrarAlerta(AlertType.ERROR, "Error de Validación",
+                        "Debe ingresar un NOMBRE para el nuevo Producto.");
+                return;
+            }
+        }
+
+        // Si la validación pasa, ejecutamos la lógica de negocio
         try {
             if (esPieza) {
-                // **CARGA COMO PIEZA:** valorIngresado es la RUTA COMPLETA del directorio existente.
-                catalogoService.procesarCargaPieza(archivoSeleccionado, valorIngresado);
-
-
+                // Caso 1: Carga como PIEZA
+                catalogoService.procesarCargaPieza(this.archivoSeleccionado, valorIngresado);
             } else {
-                // **CARGA COMO PRODUCTO:** valorIngresado es el NOMBRE del nuevo producto.
-                catalogoService.procesarCargaProducto(archivoSeleccionado, valorIngresado);
-
+                // Caso 2: Carga como PRODUCTO
+                catalogoService.procesarCargaProducto(this.archivoSeleccionado, valorIngresado);
             }
+
             this.cargaExitosa = true;
             // Cerrar la ventana modal al finalizar el proceso
             ((Node) (event.getSource())).getScene().getWindow().hide();
 
+        } catch (IllegalArgumentException e) {
+            mostrarAlerta(AlertType.ERROR, "Error de Lógica (RF8)", e.getMessage());
+            this.cargaExitosa = false;
         } catch (IOException e) {
-            System.err.println("Error de Carga: " + e.getMessage());
+            mostrarAlerta(AlertType.ERROR, "Error de Archivo/Persistencia", e.getMessage());
             this.cargaExitosa = false;
         } catch (Exception e) {
             System.err.println("Error inesperado: " + e.getMessage());
+            mostrarAlerta(AlertType.ERROR, "Error Inesperado", "Ocurrió un error: " + e.getMessage());
             this.cargaExitosa = false;
         }
     }

@@ -7,4 +7,8 @@ public interface IProductRepository {
     long save(Product product);
     //Busca un Producto (o Pieza) por su Código Único.
     Product findByCode(String code);
+
+    //Elimina una entidad (pieza o producto)
+    void deleteByCode(String code);
+
 }
