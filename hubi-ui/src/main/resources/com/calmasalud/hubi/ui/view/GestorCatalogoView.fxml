@@ -66,6 +66,7 @@
                                 onAction="#handleAgregarClick"
                                 styleClass="action-button" text="AGREGAR" />
                         <Button fx:id="btnEliminar" mnemonicParsing="false"
+                                onAction="#handleEliminarClick"
                                 styleClass="action-button" text="ELIMINAR" />
                         <Button fx:id="btnExtraer" mnemonicParsing="false"
                                 styleClass="action-button" text="EXTRAER PARÁMETROS" />
