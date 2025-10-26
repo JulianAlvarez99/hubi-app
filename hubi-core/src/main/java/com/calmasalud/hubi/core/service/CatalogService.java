@@ -11,8 +11,12 @@ import com.calmasalud.hubi.persistence.repository.ProductRepositorySQLite;
 import java.util.Comparator;
 
 public class CatalogService {
-
-    private final IProductRepository productRepository = new ProductRepositorySQLite();
+    private final IProductRepository productRepository;
+    //Tuve que comentar esto (CAMI)
+    //private final IProductRepository productRepository = new ProductRepositorySQLite();
+    public CatalogService(IProductRepository productRepository) {
+        this.productRepository = productRepository;
+    }
     // Se define la ubicación base de forma portable
     private static final Path REPOSITORIO_BASE =
             Paths.get(System.getProperty("user.home"), "SistemaHUBI", "RepositorioArchivos");

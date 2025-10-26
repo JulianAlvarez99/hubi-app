@@ -2,6 +2,8 @@ package com.calmasalud.hubi.ui.controller;
 
 
 import com.calmasalud.hubi.core.model.Product;
+import com.calmasalud.hubi.core.repository.IProductRepository;
+import com.calmasalud.hubi.persistence.repository.ProductRepositorySQLite;
 import com.calmasalud.hubi.core.service.CatalogService;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleStringProperty;
@@ -36,6 +38,8 @@ public class CatalogManagerController {
     // Campo para mantener el directorio seleccionado
     private File currentSelectedDirectory = null;
 
+    // 2. Crear el servicio de catálogo, inyectando la implementación
+    private final CatalogService catalogoService = new CatalogService(productSqliteRepository);
     // --- Panel Izquierdo (Explorador) ---
     @FXML
     private TextField txtBusqueda;
@@ -165,7 +169,7 @@ public class CatalogManagerController {
             }
         });
 
-        // 3. INICIALIZACIÓN DE COLUMNAS DE LA TABLEVIEW
+
 
         // --- COLUMNA NOMBRE: Ahora muestra el Name de la entidad Product ---
         colNombre.setCellValueFactory(cellData -> {
@@ -209,7 +213,7 @@ public class CatalogManagerController {
         refrescarVistaCatalogo();
     }
 
-    // El método formatSize ya no se usa para colTamaño, pero se mantiene por si se usa en otro lugar.
+    // El metodo formatSize ya no se usa para colTamaño, pero se mantiene por si se usa en otro lugar.
     private String formatSize(long bytes) {
         if (bytes < 1024) return bytes + " B";
         int exp = (int) (Math.log(bytes) / Math.log(1024));
@@ -218,22 +222,18 @@ public class CatalogManagerController {
     }
 
     private void cargarDetallesCarpeta(File directorio) {
-        fileTableView.getItems().clear(); // Limpia la tabla antes de cargar
-
+        fileTableView.getItems().clear();
         File[] archivos = directorio.listFiles();
 
         if (archivos != null) {
-
             for (File f : archivos) {
-                // Filtramos por archivos .stl/.3mf y también por la extensión .gcode (si se implementó)
+
                 String filename = f.getName().toLowerCase();
                 if (f.isFile() && (filename.endsWith(".stl") || filename.endsWith(".3mf") || filename.endsWith(".gcode"))) {
                     fileTableView.getItems().add(f);
                 }
-                // Si el archivo es una subcarpeta, la ignoramos para esta tabla
             }
         }
-        // Si la tabla queda vacía, el mensaje "Tabla sin contenido" se mostrará automáticamente
     }
 
     /**
@@ -241,7 +241,7 @@ public class CatalogManagerController {
      *
      */
     @FXML
-    // Este es el método vinculado al botón "AGREGAR"
+    // Este es el metodo está vinculado al botón AGREGAR
     public void handleAgregarClick(){
         try {
             mostrarModalTipoCarga(currentSelectedDirectory);
@@ -257,7 +257,6 @@ public class CatalogManagerController {
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/TipoCargaModal.fxml"));
         Parent root = loader.load();
 
-        // Obtiene el controlador de la ventana modal
         TipoCargaController controller = loader.getController();
 
         // Pasa el directorio seleccionado (NULL si no hay selección válida)
@@ -266,30 +265,65 @@ public class CatalogManagerController {
         // Configura y muestra la ventana modal
         Stage modalStage = new Stage();
         modalStage.setTitle("AGREGAR ARCHIVO");
-        modalStage.initModality(Modality.APPLICATION_MODAL); // Bloquea la ventana principal
+        modalStage.initModality(Modality.APPLICATION_MODAL);
         modalStage.setScene(new Scene(root));
-        modalStage.showAndWait(); // Espera a que el usuario cierre la modal
+        modalStage.showAndWait();
+
         if (controller.isCargaExitosa()) {
-            refrescarVistaCatalogo(); // Llama al método de actualización si hubo éxito
+            refrescarVistaCatalogo(); // Llama al método de actualización inicial (lectura de disco)
+
         }
     }
     public void refrescarVistaCatalogo() {
         System.out.println("✅ El Repositorio Master ha cambiado. Refrescando la vista del catálogo...");
-        if (REPOSITORIO_BASE.exists()) {
-            // Crea el elemento raíz del TreeView
-            TreeItem<File> rootItem = createNode(REPOSITORIO_BASE);
 
-            // La raíz del TreeView no es visible para una mejor apariencia
-            folderTreeView.setShowRoot(false);
-            folderTreeView.setRoot(rootItem);
-            System.out.println("✅ Vista de Repositorio refrescada.");
-        } else {
-            // Manejar el caso donde el repositorio aún no se ha creado
-            System.out.println("El Repositorio Master aún no existe. Se creará en la primera carga.");
+        //Guardar la carpeta previamente seleccionada.
+        File previouslySelectedDirectory = null;
+        TreeItem<File> selectedItem = folderTreeView.getSelectionModel().getSelectedItem();
+        if (selectedItem != null) {
+            previouslySelectedDirectory = selectedItem.getValue();
         }
 
-    }
+        if (REPOSITORIO_BASE.exists()) {
+            // 2. Reconstruir todo el TreeView.
+            TreeItem<File> rootItem = createNode(REPOSITORIO_BASE);
+            folderTreeView.setShowRoot(false);
+            folderTreeView.setRoot(rootItem);
 
+            // 3. CLAVE: Intentar restablecer la selección.
+            if (previouslySelectedDirectory != null && previouslySelectedDirectory.exists()) {
+
+                if (previouslySelectedDirectory.equals(REPOSITORIO_BASE)) {
+                    folderTreeView.getSelectionModel().select(rootItem);
+                    rootItem.setExpanded(true);
+                }
+                // Si el directorio previo era un subdirectorio (Producto):
+                else {
+                    // Seleccionamos la raíz y forzamos la recarga de la carpeta.
+                    // Esto es un compromiso: puede que no seleccione el nodo exacto,
+                    // pero dispara la actualización de la tabla.
+                    folderTreeView.getSelectionModel().select(rootItem);
+                    rootItem.setExpanded(true);
+
+                    // Forzar la carga de la tabla con la ruta de la carpeta del producto (la más reciente).
+                    cargarDetallesCarpeta(previouslySelectedDirectory);
+                }
+            }
+
+            // 4. Si no se pudo restablecer la selección o no había nada seleccionado,
+            // simplemente seleccionamos la raíz y recargamos la tabla.
+            if (folderTreeView.getSelectionModel().getSelectedItem() == null) {
+                folderTreeView.getSelectionModel().select(rootItem);
+                rootItem.setExpanded(true);
+                // Si no hay selección, aseguramos que la tabla cargue la raíz
+                cargarDetallesCarpeta(REPOSITORIO_BASE);
+            }
+
+            System.out.println("✅ Vista de Repositorio refrescada.");
+        } else {
+            // ... (Lógica de error) ...
+        }
+    }
     private TreeItem<File> createNode(final File f) {
         if (!f.isDirectory() && !f.equals(REPOSITORIO_BASE)) {
             return null; // No crea un nodo para archivos

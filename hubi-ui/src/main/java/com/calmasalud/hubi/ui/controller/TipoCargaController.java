@@ -8,8 +8,10 @@ import javafx.scene.Node;
 import javafx.scene.control.Alert; // Importar Alert
 import javafx.scene.control.Alert.AlertType; // Importar AlertType
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.TextField;
+import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.scene.control.Label;
@@ -61,10 +63,34 @@ public class TipoCargaController {
         // Delay para asegurar que el setter directorioProducto haya sido llamado antes de la lógica
         javafx.application.Platform.runLater(() -> actualizarEstadoCampos(radioProducto.isSelected()));
 
-        // Se añade un  Listener para cambiar el estado al hacer clic en los RadioButtons
+    public void initialize() {
+        // Agregar Listener al radioProducto: Se activa cuando pasa de FALSE a TRUE.
         radioProducto.selectedProperty().addListener((obs, oldValue, isProducto) -> {
-            actualizarEstadoCampos(isProducto);
+            // Esta lógica se dispara cuando PRODUCTO es seleccionado (isProducto=true) O deseleccionado (isProducto=false)
+            if (isProducto) {
+                actualizarEstadoCampos(true); // Activar modo PRODUCTO
+                resetearSeleccionArchivo();
+            }
         });
+
+        // Agregar Listener al radioPieza: Esto asegura que el cambio de estado se detecte.
+        radioPieza.selectedProperty().addListener((obs, oldValue, isPieza) -> {
+            // Esta lógica se dispara cuando PIEZA es seleccionado.
+            if (isPieza) {
+                actualizarEstadoCampos(false); // Activar modo PIEZA
+                resetearSeleccionArchivo();
+            }
+        });
+
+        // Aplicar el estado inicial
+        // Al usar setSelected(true), se dispara el listener de radioProducto
+        radioProducto.setSelected(true);
+
+    }
+
+    private void resetearSeleccionArchivo() {
+        this.archivoSeleccionado = null;
+        lblNombreArchivo.setText("Ningún archivo seleccionado.");
     }
     @FXML
     private void handleSeleccionarArchivo() {
@@ -196,7 +222,7 @@ public class TipoCargaController {
 
             this.cargaExitosa = true;
             // Cerrar la ventana modal al finalizar el proceso
-            ((Node)(event.getSource())).getScene().getWindow().hide();
+            ((Node) (event.getSource())).getScene().getWindow().hide();
 
         } catch (IllegalArgumentException e) {
             mostrarAlerta(AlertType.ERROR, "Error de Lógica (RF8)", e.getMessage());
@@ -211,11 +237,11 @@ public class TipoCargaController {
         }
     }
 
-    // Método enlazado al botón "CANCELAR"
+    // Metodo vinculado al botón "CANCELAR"
     @FXML
     public void onCancelarClicked(ActionEvent event) {
         this.cargaExitosa = false;
         // Cierra la ventana modal sin procesar la carga
-        ((Node)(event.getSource())).getScene().getWindow().hide();
+        ((Node) (event.getSource())).getScene().getWindow().hide();
     }
 }
