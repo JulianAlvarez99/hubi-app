@@ -1,38 +1,52 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
-<?import javafx.scene.Node.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
 
-<AnchorPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
+<AnchorPane xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.calmasalud.hubi.ui.controller.TipoCargaController"
             prefHeight="300.0" prefWidth="450.0">
-    <VBox spacing="15.0" AnchorPane.topAnchor="20.0" AnchorPane.leftAnchor="20.0" AnchorPane.rightAnchor="20.0">
 
-        <Label text="Seleccione qué tipo de objeto es:" style="-fx-font-weight: bold;" />
+    <VBox spacing="15.0" AnchorPane.bottomAnchor="20.0" AnchorPane.leftAnchor="20.0" AnchorPane.rightAnchor="20.0" AnchorPane.topAnchor="20.0">
 
-        <HBox spacing="20.0">
-            <fx:define>
-                <ToggleGroup fx:id="grupoTipoObjeto" />
-            </fx:define>
+        <VBox spacing="10.0">
+            <Label text="Seleccione qué tipo de objeto es:" style="-fx-font-weight: bold;" />
+            <HBox spacing="30.0">
+                <fx:define>
+                    <ToggleGroup fx:id="grupoTipoObjeto" />
+                </fx:define>
 
-            <RadioButton fx:id="radioPieza" text="PIEZA" toggleGroup="$grupoTipoObjeto" />
-            <RadioButton fx:id="radioProducto" text="PRODUCTO" toggleGroup="$grupoTipoObjeto" selected="true" />
-        </HBox>
+                <RadioButton fx:id="radioPieza"
+                             text="PIEZA"
+                             toggleGroup="$grupoTipoObjeto" />
+
+                <RadioButton fx:id="radioProducto"
+                             text="PRODUCTO"
+                             toggleGroup="$grupoTipoObjeto"
+                             selected="true" />
+            </HBox>
+        </VBox>
 
         <Separator />
+
+        <VBox fx:id="fileSearchContainer" spacing="5.0">
+            <Label text="Archivo Seleccionado:" style="-fx-font-weight: bold;" />
+            <HBox spacing="10.0">
+                <Button text="BUSCAR ARCHIVO" onAction="#handleBuscarArchivoClicked" fx:id="btnBuscarArchivo" />
+                <Label fx:id="lblNombreArchivo" text="Ningún archivo seleccionado." />
+            </HBox>
+        </VBox>
+
+        <Separator />
+
         <GridPane hgap="10.0" vgap="5.0">
             <columnConstraints>
-                <ColumnConstraints prefWidth="100.0" />
+                <ColumnConstraints prefWidth="120.0" />
                 <ColumnConstraints hgrow="ALWAYS" prefWidth="250.0" />
             </columnConstraints>
-            <rowConstraints>
-                <RowConstraints minHeight="10.0" vgrow="SOMETIMES" />
-            </rowConstraints>
 
             <Label text="NOMBRE/DIRECTORIO:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
 
@@ -46,7 +60,8 @@
                         visible="false" />
             </HBox>
         </GridPane>
-        <HBox alignment="CENTER_RIGHT" spacing="10.0">
+
+        <HBox alignment="CENTER_RIGHT" spacing="10.0" style="-fx-padding: 10 0 0 0;">
             <Button text="CANCELAR" onAction="#onCancelarClicked" />
             <Button fx:id="btnCargar" text="CARGAR" onAction="#onCargarClicked" style="-fx-font-weight: bold;" />
         </HBox>

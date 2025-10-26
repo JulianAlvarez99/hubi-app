@@ -9,11 +9,16 @@ import java.nio.file.StandardCopyOption;
 import com.calmasalud.hubi.core.model.Product;
 import com.calmasalud.hubi.core.model.Supply;
 import com.calmasalud.hubi.core.repository.IProductRepository;
-import com.calmasalud.hubi.persistence.repository.ProductRepositorySQLite;
+//Tuve que comentar esto (CAMI)
+//import com.calmasalud.hubi.persistence.repository.ProductRepositorySQLite;
 
 public class CatalogService {
-
-    private final IProductRepository productRepository = new ProductRepositorySQLite();
+    private final IProductRepository productRepository;
+    //Tuve que comentar esto (CAMI)
+    //private final IProductRepository productRepository = new ProductRepositorySQLite();
+    public CatalogService(IProductRepository productRepository) {
+        this.productRepository = productRepository;
+    }
     // Se define la ubicación base de forma portable
     private static final Path REPOSITORIO_BASE =
             Paths.get(System.getProperty("user.home"), "SistemaHUBI", "RepositorioArchivos");
@@ -149,5 +154,34 @@ public class CatalogService {
             return "";
         }
         return filename.substring(dotIndex);
+    }
+    public void eliminarObjeto(File objeto) throws IOException {
+        if (objeto == null || !objeto.exists()) {
+            throw new IOException("El objeto no existe o ya ha sido eliminado.");
+        }
+
+        // IMPORTANTE: Manejar la eliminación recursiva si es un directorio (Producto)
+        if (objeto.isDirectory()) {
+            // Lógica para eliminar el contenido del directorio antes de eliminar el directorio mismo.
+            eliminarDirectorioRecursivo(objeto);
+        } else {
+            // Eliminar el archivo (Pieza)
+            if (!objeto.delete()) {
+                throw new IOException("Fallo al eliminar el archivo: " + objeto.getAbsolutePath());
+            }
+        }
+    }
+    private void eliminarDirectorioRecursivo(File directorio) throws IOException {
+        if (directorio.isDirectory()) {
+            File[] children = directorio.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    eliminarDirectorioRecursivo(child);
+                }
+            }
+        }
+        if (!directorio.delete()) {
+            throw new IOException("Fallo al eliminar el directorio: " + directorio.getAbsolutePath());
+        }
     }
 }

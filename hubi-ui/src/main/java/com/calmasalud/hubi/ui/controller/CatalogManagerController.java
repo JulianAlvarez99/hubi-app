@@ -3,6 +3,8 @@ package com.calmasalud.hubi.ui.controller;
 
 
 import com.calmasalud.hubi.core.model.Product;
+import com.calmasalud.hubi.core.repository.IProductRepository;
+import com.calmasalud.hubi.persistence.repository.ProductRepositorySQLite;
 import com.calmasalud.hubi.core.service.CatalogService;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleStringProperty;
@@ -22,12 +24,18 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import javafx.application.Platform;
+
 
 public class CatalogManagerController {
 
     // --- Inyección de Servicios ---
-    private final CatalogService catalogoService = new CatalogService();
+    //private final CatalogService catalogoService = new CatalogService();
+    // 1. Instanciar la implementación CONCRETA (desde hubi-persistance)
+    private final IProductRepository productSqliteRepository = new ProductRepositorySQLite();
 
+    // 2. Crear el servicio de catálogo, inyectando la implementación
+    private final CatalogService catalogoService = new CatalogService(productSqliteRepository);
     // --- Panel Izquierdo (Explorador) ---
     @FXML
     private TextField txtBusqueda;
@@ -84,8 +92,6 @@ public class CatalogManagerController {
     public void initialize() {
         System.out.println("Controlador de Catálogo (v2.1 con Tree/Table) inicializado.");
 
-        // (Lógica de inicialización del TreeView sin cambios)
-        // Se ejecuta al cargar la vista
         folderTreeView.setCellFactory(new Callback<TreeView<File>, TreeCell<File>>() {
             @Override
             public TreeCell<File> call(TreeView<File> param) {
@@ -121,7 +127,7 @@ public class CatalogManagerController {
             }
         });
 
-        // 3. INICIALIZACIÓN DE COLUMNAS DE LA TABLEVIEW
+
 
         // --- COLUMNA NOMBRE: Ahora muestra el Name de la entidad Product ---
         colNombre.setCellValueFactory(cellData -> {
@@ -138,6 +144,7 @@ public class CatalogManagerController {
 
             return new SimpleStringProperty(nameToShow);
         });
+
 
         // --- COLUMNA TAMAÑO: Ahora muestra el CÓDIGO ÚNICO (RF8) ---
         colTamaño.setCellValueFactory(cellData -> {
@@ -159,7 +166,7 @@ public class CatalogManagerController {
         refrescarVistaCatalogo();
     }
 
-    // El método formatSize ya no se usa para colTamaño, pero se mantiene por si se usa en otro lugar.
+    // El metodo formatSize ya no se usa para colTamaño, pero se mantiene por si se usa en otro lugar.
     private String formatSize(long bytes) {
         if (bytes < 1024) return bytes + " B";
         int exp = (int) (Math.log(bytes) / Math.log(1024));
@@ -168,22 +175,18 @@ public class CatalogManagerController {
     }
 
     private void cargarDetallesCarpeta(File directorio) {
-        fileTableView.getItems().clear(); // Limpia la tabla antes de cargar
-
+        fileTableView.getItems().clear();
         File[] archivos = directorio.listFiles();
 
         if (archivos != null) {
-
             for (File f : archivos) {
-                // Filtramos por archivos .stl/.3mf y también por la extensión .gcode (si se implementó)
+
                 String filename = f.getName().toLowerCase();
                 if (f.isFile() && (filename.endsWith(".stl") || filename.endsWith(".3mf") || filename.endsWith(".gcode"))) {
                     fileTableView.getItems().add(f);
                 }
-                // Si el archivo es una subcarpeta, la ignoramos para esta tabla
             }
         }
-        // Si la tabla queda vacía, el mensaje "Tabla sin contenido" se mostrará automáticamente
     }
 
     /**
@@ -191,76 +194,87 @@ public class CatalogManagerController {
      *
      */
     @FXML
-    // Este es el método vinculado al botón "AGREGAR"
+    // Este es el metodo está vinculado al botón AGREGAR
     public void handleAgregarClick(){
 
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Seleccionar Archivos de Diseño/Impresión (.stl, .3mf)");
+        try {
+            //Abre el modal inmediatamente
+            mostrarModalTipoCarga(null);
 
-        // Agregar los filtros de extensión (RF1) - Incluyendo .gcode
-        fileChooser.getExtensionFilters().addAll(
-                // Filtro general (para comodidad del usuario)
-                new FileChooser.ExtensionFilter("Modelos 3D y GCode", "*.stl", "*.3mf", "*.gcode"),
-
-                // Filtros específicos (opcionales, pero útiles para la interfaz del SO)
-                new FileChooser.ExtensionFilter("Archivos STL", "*.stl"),
-                new FileChooser.ExtensionFilter("Archivos 3MF", "*.3mf"),
-                new FileChooser.ExtensionFilter("Archivos GCode", "*.gcode")
-        );
-
-        File archivoSeleccionado = fileChooser.showOpenDialog(null);
-
-        if (archivoSeleccionado != null) {
-            try {
-                // Lanza la nueva ventana, pasando el archivo seleccionado.
-                mostrarModalTipoCarga(archivoSeleccionado);
-
-            } catch (IOException e) {
-                System.err.println("Error al cargar la ventana de tipo de carga: " + e.getMessage());
-            }
+        } catch (IOException e) {
+            System.err.println("Error al cargar la ventana de tipo de carga: " + e.getMessage());
         }
     }
 
-    // Método para lanzar la ventana modal
+    // Metodo para lanzar la ventana modal
     private void mostrarModalTipoCarga(File archivo) throws IOException {
-        // Carga el FXML de la ventana modal
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/TipoCargaModal.fxml"));
         Parent root = loader.load();
 
-        // Obtiene el controlador de la ventana modal
         TipoCargaController controller = loader.getController();
-
-        // Pasa el archivo seleccionado al controlador de la modal
-        controller.setArchivoSeleccionado(archivo);
-
-        // Configura y muestra la ventana modal
+        controller.setCatalogoService(this.catalogoService);
         Stage modalStage = new Stage();
         modalStage.setTitle("AGREGAR ARCHIVO");
-        modalStage.initModality(Modality.APPLICATION_MODAL); // Bloquea la ventana principal
+        modalStage.initModality(Modality.APPLICATION_MODAL);
         modalStage.setScene(new Scene(root));
-        modalStage.showAndWait(); // Espera a que el usuario cierre la modal
+        modalStage.showAndWait();
+
         if (controller.isCargaExitosa()) {
-            refrescarVistaCatalogo(); // Llama al método de actualización si hubo éxito
+            refrescarVistaCatalogo(); // Llama al método de actualización inicial (lectura de disco)
+
         }
     }
 
     public void refrescarVistaCatalogo() {
         System.out.println("✅ El Repositorio Master ha cambiado. Refrescando la vista del catálogo...");
-        if (REPOSITORIO_BASE.exists()) {
-            // Crea el elemento raíz del TreeView
-            TreeItem<File> rootItem = createNode(REPOSITORIO_BASE);
 
-            // La raíz del TreeView no es visible para una mejor apariencia
-            folderTreeView.setShowRoot(false);
-            folderTreeView.setRoot(rootItem);
-            System.out.println("✅ Vista de Repositorio refrescada.");
-        } else {
-            // Manejar el caso donde el repositorio aún no se ha creado
-            System.out.println("El Repositorio Master aún no existe. Se creará en la primera carga.");
+        //Guardar la carpeta previamente seleccionada.
+        File previouslySelectedDirectory = null;
+        TreeItem<File> selectedItem = folderTreeView.getSelectionModel().getSelectedItem();
+        if (selectedItem != null) {
+            previouslySelectedDirectory = selectedItem.getValue();
         }
 
-    }
+        if (REPOSITORIO_BASE.exists()) {
+            // 2. Reconstruir todo el TreeView.
+            TreeItem<File> rootItem = createNode(REPOSITORIO_BASE);
+            folderTreeView.setShowRoot(false);
+            folderTreeView.setRoot(rootItem);
 
+            // 3. CLAVE: Intentar restablecer la selección.
+            if (previouslySelectedDirectory != null && previouslySelectedDirectory.exists()) {
+
+                if (previouslySelectedDirectory.equals(REPOSITORIO_BASE)) {
+                    folderTreeView.getSelectionModel().select(rootItem);
+                    rootItem.setExpanded(true);
+                }
+                // Si el directorio previo era un subdirectorio (Producto):
+                else {
+                    // Seleccionamos la raíz y forzamos la recarga de la carpeta.
+                    // Esto es un compromiso: puede que no seleccione el nodo exacto,
+                    // pero dispara la actualización de la tabla.
+                    folderTreeView.getSelectionModel().select(rootItem);
+                    rootItem.setExpanded(true);
+
+                    // Forzar la carga de la tabla con la ruta de la carpeta del producto (la más reciente).
+                    cargarDetallesCarpeta(previouslySelectedDirectory);
+                }
+            }
+
+            // 4. Si no se pudo restablecer la selección o no había nada seleccionado,
+            // simplemente seleccionamos la raíz y recargamos la tabla.
+            if (folderTreeView.getSelectionModel().getSelectedItem() == null) {
+                folderTreeView.getSelectionModel().select(rootItem);
+                rootItem.setExpanded(true);
+                // Si no hay selección, aseguramos que la tabla cargue la raíz
+                cargarDetallesCarpeta(REPOSITORIO_BASE);
+            }
+
+            System.out.println("✅ Vista de Repositorio refrescada.");
+        } else {
+            // ... (Lógica de error) ...
+        }
+    }
     private TreeItem<File> createNode(final File f) {
         if (!f.isDirectory() && !f.equals(REPOSITORIO_BASE)) {
             return null; // No crea un nodo para archivos
@@ -311,5 +325,83 @@ public class CatalogManagerController {
         }
         return root;
     }
-    // (Aquí irán los handlers para btnEliminar y btnExtraer)
+    public void handleEliminarClick() {
+        File objetoAEliminar = null;
+
+        //Intentar obtener el archivo seleccionado de la TABLA (Pieza)
+        objetoAEliminar = fileTableView.getSelectionModel().getSelectedItem();
+
+        if (objetoAEliminar == null) {
+            //Si no hay Pieza seleccionada, intentar obtener la carpeta del ÁRBOL (Producto)
+            TreeItem<File> selectedItem = folderTreeView.getSelectionModel().getSelectedItem();
+            if (selectedItem != null) {
+                objetoAEliminar = selectedItem.getValue();
+            }
+        }
+
+        if (objetoAEliminar != null && objetoAEliminar.exists()) {
+            try {
+                // No se permite eliminar el Repositorio Master
+                if (objetoAEliminar.equals(REPOSITORIO_BASE)) {
+                    mostrarAlerta(Alert.AlertType.WARNING, "Error de Eliminación", "No se puede eliminar la carpeta raíz del repositorio.");
+                    return;
+                }
+
+                // Si es un directorio (Producto), preguntar si está seguro
+                String tipoObjeto = objetoAEliminar.isDirectory() ? "Producto" : "Archivo";
+
+                // Muestra la ventana modal de confirmación
+                boolean confirmacion = mostrarModalConfirmacion(objetoAEliminar);
+
+                if (confirmacion) {
+                    // Ejecutar la eliminación a través del servicio
+                    catalogoService.eliminarObjeto(objetoAEliminar);
+
+                    // Mostrar un mensaje de éxito
+                    mostrarAlerta(Alert.AlertType.INFORMATION, "Eliminación Exitosa",
+                            tipoObjeto + " '" + objetoAEliminar.getName() + "' eliminado con éxito.");
+
+
+                    folderTreeView.getSelectionModel().clearSelection();
+                    fileTableView.getItems().clear();
+
+                    refrescarVistaCatalogo();
+                } else {
+                    mostrarAlerta(Alert.AlertType.INFORMATION, "Operación Cancelada", "La eliminación ha sido cancelada.");
+                }
+            } catch (IOException e) {
+                System.err.println("Error al procesar la eliminación: " + e.getMessage());
+                mostrarAlerta(Alert.AlertType.ERROR, "Error de Sistema", "No se pudo eliminar el objeto: " + e.getMessage());
+            }
+        } else {
+            mostrarAlerta(Alert.AlertType.WARNING, "Objeto No Seleccionado", "Por favor, seleccione un Producto (en el árbol) o un Archivo (en la tabla) para eliminar.");
+        }
+    }
+
+
+    private void mostrarAlerta(Alert.AlertType type, String title, String message) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+    private boolean mostrarModalConfirmacion(File objetoAEliminar) throws IOException {
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/ConfirmacionModal.fxml"));
+        Parent root = loader.load();
+
+        ConfirmacionController controller = loader.getController();
+
+        // Configura el mensaje
+        String mensaje = "¿Desea eliminar " + objetoAEliminar.getName() + " de manera permanente? Esta acción no se puede deshacer.";
+        controller.setMensaje(mensaje);
+
+        Stage modalStage = new Stage();
+        modalStage.setTitle("CONFIRMACIÓN DE ELIMINACIÓN");
+        modalStage.initModality(Modality.APPLICATION_MODAL);
+        modalStage.setScene(new Scene(root));
+        modalStage.showAndWait();
+
+        return controller.isConfirmado();
+    }
 }
