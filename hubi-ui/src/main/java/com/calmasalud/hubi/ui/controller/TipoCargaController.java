@@ -139,7 +139,7 @@ public class TipoCargaController {
         // --- FIN: Configuración Drag and Drop ---
 
 
-        // ... (resto del método initialize sin cambios) ...
+        // ... (resto del method initialize sin cambios) ...
         actualizarEstadoCampos(radioProducto.isSelected());
         resetearSeleccionArchivo();
 
