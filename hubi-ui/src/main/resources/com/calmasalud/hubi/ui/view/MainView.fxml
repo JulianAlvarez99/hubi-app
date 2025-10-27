@@ -1,46 +1,58 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.control.*?>
-<?import javafx.scene.image.*?>
-<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ToggleButton?>
+<?import javafx.scene.control.ToggleGroup?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
 
-<BorderPane prefHeight="800.0" prefWidth="1280.0" stylesheets="@../css/styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.MainController">
+<BorderPane prefHeight="768.0" prefWidth="1024.0" stylesheets="@../css/styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.MainController">
 
     <top>
         <HBox alignment="CENTER_LEFT" spacing="15.0" styleClass="header-bar" BorderPane.alignment="CENTER">
             <children>
-                <ImageView fitHeight="80.0" fitWidth="53.0" pickOnBounds="true" preserveRatio="true">
+                <ImageView fitHeight="60.0" fitWidth="40.0" pickOnBounds="true" preserveRatio="true">
                     <image>
                         <Image url="@../logo/Logo_ARCADIA_sinNombre.png" />
                     </image>
                 </ImageView>
                 <Label styleClass="header-logo" text="HUBI" />
-
                 <Region HBox.hgrow="ALWAYS" />
-
-                <VBox alignment="CENTER_LEFT">
+                <VBox alignment="CENTER_RIGHT">
                     <children>
                         <Label styleClass="header-title" text="Sistema HUBI" />
                         <Label fx:id="lblDateTime" styleClass="header-datetime" text="dd/mm/yyyy hh:mm:ss" />
                     </children>
                 </VBox>
             </children>
+            <padding>
+                <Insets bottom="5.0" left="15.0" right="15.0" top="5.0" />
+            </padding>
         </HBox>
     </top>
 
     <left>
-        <VBox prefWidth="220.0" spacing="10.0" styleClass="menu-bar" BorderPane.alignment="CENTER">
+<!--        {/* === CAMBIO AQUÍ: Aumentado minWidth y prefWidth === */}-->
+        <VBox minWidth="240.0" prefWidth="250.0" spacing="10.0" styleClass="menu-bar" BorderPane.alignment="CENTER">
             <children>
                 <fx:define>
                     <ToggleGroup fx:id="menuToggleGroup" />
                 </fx:define>
-
                 <ToggleButton fx:id="btnCatalogo" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleMenuCatalogo" selected="true" styleClass="menu-toggle-button" text="GESTOR DE CATÁLOGO" toggleGroup="$menuToggleGroup" />
-
                 <ToggleButton fx:id="btnInventario" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleMenuInventario" styleClass="menu-toggle-button" text="INVENTARIO" toggleGroup="$menuToggleGroup" />
-
-                <ToggleButton fx:id="btnReportes" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleMenuReportes" styleClass="menu-toggle-button" text="REPORTES Y SEGUIMIENTO" toggleGroup="$menuToggleGroup" />
+<!--                {/* Opcional: Podrías añadir wrapText="true" si prefieres que el texto salte de línea */}-->
+                <ToggleButton fx:id="btnReportes" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleMenuReportes" styleClass="menu-toggle-button" text="REPORTES Y SEGUIMIENTO" toggleGroup="$menuToggleGroup" wrapText="false"/>
             </children>
+            <padding>
+                <Insets top="10.0" />
+            </padding>
         </VBox>
     </left>
 
@@ -51,7 +63,7 @@
     <bottom>
         <AnchorPane styleClass="footer-bar" BorderPane.alignment="CENTER">
             <children>
-                <Label styleClass="footer-text" text="ARCADIA_HUBI v1.0.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="5.0" AnchorPane.topAnchor="0.0" />
+                <Label styleClass="footer-text" text="ARCADIA_HUBI v1.0.0" AnchorPane.bottomAnchor="5.0" AnchorPane.leftAnchor="10.0" AnchorPane.topAnchor="5.0" />
             </children>
         </AnchorPane>
     </bottom>

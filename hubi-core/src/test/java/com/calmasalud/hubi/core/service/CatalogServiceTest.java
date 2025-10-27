@@ -5,66 +5,72 @@ import com.calmasalud.hubi.core.repository.IProductRepository;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows; // Importar si se añaden pruebas de excepciones
 
-/*class CatalogoServiceTest {
-
-    @Test
-    void testGenerarCodigoProducto() {
-        CatalogService service = new CatalogService();
-        String codigo = service.generateProductCode("Soporte", "Rojo", true);
-
-        // Valida contra el ejemplo de tu propia especificación [cite: 773]
-        assertEquals("SOPROJ-0-001", codigo);
-    }
-}*/
-class CatalogoServiceTest {
+class CatalogServiceTest {
 
     @Test
     void testGenerarCodigoProducto() {
 
         // 1. Crear una implementación simulada (Mock) de la interfaz de repositorio.
-        //    Esto es necesario para satisfacer el constructor con DI.
         IProductRepository mockRepository = new IProductRepository() {
 
-            // ----------------------------------------------------
-            // IMPLEMENTACIÓN 1: getNextCorrelative
-            // La lógica de generateProductCode necesita llamar a este método.
-            // ----------------------------------------------------
+            // Implementación simulada de getNextCorrelative
             @Override
             public String getNextCorrelative(String prefijoSeisLetras) {
-                // Simulamos que el siguiente correlativo es '001' (la primera vez que se llama).
-                return "001";
+                // Simulamos que el siguiente correlativo es '001'.
+                if ("SOPROJ".equals(prefijoSeisLetras)) { // Ser más específico si es necesario
+                    return "001";
+                }
+                return "999"; // Valor por defecto para otros prefijos si aparecen
             }
 
-            // ----------------------------------------------------
-            // IMPLEMENTACIÓN 2: save(Product product)
-            // Requerida por la interfaz, pero vacía para la prueba unitaria.
-            // ----------------------------------------------------
+            // Implementación simulada de save (vacía para esta prueba)
             @Override
             public long save(Product product) {
-                // Devolvemos un ID simulado para evitar errores de compilación.
-                return 1L;
+                return 1L; // Devolver un ID simulado
             }
 
-            // ----------------------------------------------------
-            // IMPLEMENTACIÓN 3: findByCode(String code)
-            // Requerida por la interfaz, pero vacía para la prueba unitaria.
-            // ----------------------------------------------------
+            // Implementación simulada de findByCode (vacía para esta prueba)
             @Override
             public Product findByCode(String code) {
-                return null;
+                return null; // No necesitamos encontrar productos en esta prueba
             }
+
+            // --- IMPLEMENTACIÓN FALTANTE AÑADIDA ---
+            @Override
+            public void deleteByCode(String code) {
+                // Vacío para este mock, ya que la prueba generateProductCode no lo usa.
+                // Simplemente cumple con el contrato de la interfaz.
+                System.out.println("Mock deleteByCode llamado con código: " + code); // Opcional: para debugging
+            }
+            // -----------------------------------------
         };
 
         // 2. Crear el servicio, inyectando el Mock
-        //    (Satisfaciendo el constructor con DI: new CatalogService(IProductRepository))
         CatalogService service = new CatalogService(mockRepository);
 
-        // 3. Ejecutar el método a probar
-        String codigo = service.generateProductCode("Soporte", "Rojo", true);
+        // 3. Ejecutar el method a probar
+        //    (Ajustado para reflejar la simplificación del method generateProductCode)
+        String codigo = service.generateProductCode("Soporte"); // Ya no necesita color ni boolean
 
-        // 4. Valida contra el ejemplo de tu propia especificación
-        //    SOP (Soporte) + ROJ (Rojo) + 0 (Pieza) + 001 (Correlativo)
-        assertEquals("SOPROJ-0-001", codigo, "El código generado debe coincidir con el formato esperado.");
+        // 4. Validar contra el formato esperado (sin el -0-)
+        //    SOP (Soporte) + ROJ (Color por defecto) + 001 (Correlativo)
+        assertEquals("SOPROJ001", codigo, "El código generado debe coincidir con el formato esperado.");
+
+        // Prueba adicional: Nombre corto debería lanzar excepción
+        assertThrows(IllegalArgumentException.class, () -> {
+            service.generateProductCode("So");
+        }, "Debería lanzar excepción si el nombre es menor a 3 caracteres.");
+        // Prueba adicional: Nombre nulo debería lanzar excepción
+        assertThrows(IllegalArgumentException.class, () -> {
+            service.generateProductCode(null);
+        }, "Debería lanzar excepción si el nombre es nulo.");
+
     }
+
+    // Podrías añadir más tests aquí para probar otros métodos de CatalogService
+    // como procesarCargaProducto, procesarCargaPieza, deletePiece, deleteProduct, etc.
+    // Cada uno requeriría mocks apropiados para IProductRepository y quizás mocks
+    // para operaciones de sistema de archivos si quieres aislarlas.
 }

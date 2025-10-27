@@ -1,24 +1,36 @@
 package com.calmasalud.hubi.ui.controller;
 
-
-import com.calmasalud.hubi.core.service.CatalogService;
+import com.calmasalud.hubi.core.repository.IProductRepository;
+import com.calmasalud.hubi.persistence.repository.ProductRepositorySQLite;
+import com.calmasalud.hubi.core.service.CatalogService; // Asegúrate que esté importado
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
-import javafx.scene.control.Alert; // Importar Alert
-import javafx.scene.control.Alert.AlertType; // Importar AlertType
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.VBox;
+import javafx.scene.input.DragEvent; // Importar
+import javafx.scene.input.Dragboard; // Importar
+import javafx.scene.input.TransferMode; // Importar
+import javafx.scene.layout.VBox; // Importar VBox
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
-import javafx.scene.control.Label;
+
+
 import java.io.File;
 import java.io.IOException;
+import java.util.List; // Importar List
 
 public class TipoCargaController {
+
+    // --- Inyección de Dependencia ---
+    private final IProductRepository productSqliteRepository = new ProductRepositorySQLite();
+    private final CatalogService catalogoService = new CatalogService(productSqliteRepository);
+    // ---------------------------------
+
     private File archivoSeleccionado;
 
     // CAMPOS FXML
@@ -26,30 +38,43 @@ public class TipoCargaController {
     @FXML private RadioButton radioPieza;
     @FXML private TextField txtNombre;
     @FXML private Button btnBuscarDirectorio;
-
-    // NUEVO FXML: Botón para iniciar el diálogo de selección de archivo
     @FXML private Button btnSeleccionarArchivo;
-    // NUEVO FXML: Etiqueta para mostrar el nombre del archivo seleccionado
     @FXML private Label lblArchivoSeleccionado;
+    @FXML private Button btnCargar;
+    @FXML private Button btnCancelar;
+    @FXML private VBox rootVBox; // Referencia al VBox raíz del FXML
+    @FXML private VBox dropZone; // *** NUEVO ID PARA LA ZONA DE DROP ***
 
     private File directorioProducto;
-    private final CatalogService catalogoService = new CatalogService();
-
-
-    // NUEVO: Atributo para recibir el directorio seleccionado del Gestor de Catálogo
+    private boolean cargaExitosa = false;
 
     private static final String REPOSITORIO_BASE_PATH =
             System.getProperty("user.home") + File.separator + "SistemaHUBI" + File.separator + "RepositorioArchivos";
-    private boolean cargaExitosa = false;
+
+
+    // --- Métodos ---
 
     public void setArchivoSeleccionado(File archivo) {
         this.archivoSeleccionado = archivo;
-
+        if (archivo != null) {
+            lblArchivoSeleccionado.setText("Archivo: " + archivo.getName());
+            // Opcional: Cambiar estilo para indicar éxito
+            lblArchivoSeleccionado.setStyle("-fx-text-fill: green;");
+        } else {
+            lblArchivoSeleccionado.setText("Ningún archivo seleccionado.");
+            lblArchivoSeleccionado.setStyle(""); // Resetear estilo
+        }
     }
 
-    // Setter para recibir la selección del TreeView (puede ser null)
     public void setDirectorioProducto(File directorioProducto) {
         this.directorioProducto = directorioProducto;
+        javafx.application.Platform.runLater(() -> {
+            if (this.directorioProducto != null) {
+                radioPieza.setSelected(true);
+            } else {
+                radioProducto.setSelected(true);
+            }
+        });
     }
 
     public boolean isCargaExitosa() {
@@ -58,190 +83,202 @@ public class TipoCargaController {
 
     @FXML
     public void initialize() {
-        // Se establece el estado inicial: Producto (nuevo)
-        radioProducto.setSelected(true);
-        // Delay para asegurar que el setter directorioProducto haya sido llamado antes de la lógica
-        javafx.application.Platform.runLater(() -> actualizarEstadoCampos(radioProducto.isSelected()));
 
-    public void initialize() {
-        // Agregar Listener al radioProducto: Se activa cuando pasa de FALSE a TRUE.
+        // --- INICIO: Configuración Drag and Drop (AHORA EN dropZone) ---
+        dropZone.setOnDragOver(event -> { // <-- CAMBIADO a dropZone
+            Dragboard db = event.getDragboard();
+            if (db.hasFiles()) {
+                boolean hasValidExtension = db.getFiles().stream()
+                        .anyMatch(file -> {
+                            String name = file.getName().toLowerCase();
+                            return name.endsWith(".stl") || name.endsWith(".3mf") || name.endsWith(".gcode");
+                        });
+
+                if (hasValidExtension) {
+                    event.acceptTransferModes(TransferMode.COPY);
+                    // Aplicar estilo de feedback visual a dropZone
+                    dropZone.getStyleClass().add("drop-zone-drag-over"); // Usa clase CSS
+                } else {
+                    event.consume();
+                    dropZone.getStyleClass().remove("drop-zone-drag-over"); // Quitar clase si no es válido
+                }
+            } else {
+                event.consume();
+            }
+        });
+
+        dropZone.setOnDragExited(event -> { // <-- CAMBIADO a dropZone
+            // Quitar estilo de feedback visual
+            dropZone.getStyleClass().remove("drop-zone-drag-over");
+        });
+
+        dropZone.setOnDragDropped(event -> { // <-- CAMBIADO a dropZone
+            Dragboard db = event.getDragboard();
+            boolean success = false;
+            if (db.hasFiles()) {
+                // Tomar solo el PRIMER archivo válido
+                File droppedFile = db.getFiles().stream()
+                        .filter(file -> {
+                            String name = file.getName().toLowerCase();
+                            return name.endsWith(".stl") || name.endsWith(".3mf") || name.endsWith(".gcode");
+                        })
+                        .findFirst() // Obtiene el primero que cumple
+                        .orElse(null); // O null si ninguno cumple
+
+                if (droppedFile != null) {
+                    setArchivoSeleccionado(droppedFile);
+                    success = true;
+                } else {
+                    mostrarAlerta(AlertType.WARNING, "Archivo Inválido", "El archivo soltado no tiene una extensión válida (.stl, .3mf, .gcode).");
+                }
+            }
+            event.setDropCompleted(success);
+            event.consume();
+            dropZone.getStyleClass().remove("drop-zone-drag-over"); // Limpiar estilo
+        });
+        // --- FIN: Configuración Drag and Drop ---
+
+
+        // ... (resto del método initialize sin cambios) ...
+        actualizarEstadoCampos(radioProducto.isSelected());
+        resetearSeleccionArchivo();
+
         radioProducto.selectedProperty().addListener((obs, oldValue, isProducto) -> {
-            // Esta lógica se dispara cuando PRODUCTO es seleccionado (isProducto=true) O deseleccionado (isProducto=false)
             if (isProducto) {
-                actualizarEstadoCampos(true); // Activar modo PRODUCTO
-                resetearSeleccionArchivo();
+                actualizarEstadoCampos(true);
             }
         });
 
-        // Agregar Listener al radioPieza: Esto asegura que el cambio de estado se detecte.
         radioPieza.selectedProperty().addListener((obs, oldValue, isPieza) -> {
-            // Esta lógica se dispara cuando PIEZA es seleccionado.
             if (isPieza) {
-                actualizarEstadoCampos(false); // Activar modo PIEZA
-                resetearSeleccionArchivo();
+                actualizarEstadoCampos(false);
             }
         });
 
-        // Aplicar el estado inicial
-        // Al usar setSelected(true), se dispara el listener de radioProducto
-        radioProducto.setSelected(true);
-
+        // radioProducto.setSelected(true); // El FXML ya lo establece por defecto
     }
 
     private void resetearSeleccionArchivo() {
-        this.archivoSeleccionado = null;
-        lblNombreArchivo.setText("Ningún archivo seleccionado.");
+        setArchivoSeleccionado(null); // Usar el setter para actualizar label y estilo
     }
+
     @FXML
     private void handleSeleccionarArchivo() {
         FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Seleccionar Archivo de Diseño/Impresión (.stl, .3mf)");
-
-        // Agregar los filtros de extensión (RF1)
+        fileChooser.setTitle("Seleccionar Archivo de Diseño/Impresión (.stl, .3mf, .gcode)");
         fileChooser.getExtensionFilters().addAll(
                 new FileChooser.ExtensionFilter("Modelos 3D y GCode", "*.stl", "*.3mf", "*.gcode"),
                 new FileChooser.ExtensionFilter("Archivos STL", "*.stl"),
                 new FileChooser.ExtensionFilter("Archivos 3MF", "*.3mf"),
                 new FileChooser.ExtensionFilter("Archivos GCode", "*.gcode")
         );
+        File selected = fileChooser.showOpenDialog(rootVBox.getScene().getWindow()); // Anclar al modal
+        setArchivoSeleccionado(selected);
+    }
 
-        File selected = fileChooser.showOpenDialog(null);
+    private void actualizarEstadoCampos(boolean esProducto) {
+        // ... (resto del method sin cambios) ...
+        txtNombre.clear();
+        btnBuscarDirectorio.setVisible(false); // Oculto
 
-        if (selected != null) {
-            this.archivoSeleccionado = selected;
-            lblArchivoSeleccionado.setText("Archivo: " + selected.getName()); // Mostrar al usuario
+        if (esProducto) {
+            txtNombre.setEditable(true);
+            txtNombre.setDisable(false);
+            txtNombre.setPromptText("Ingrese nombre del NUEVO producto (Ej: SOPORTE)");
+        } else {
+            txtNombre.setEditable(false);
+            txtNombre.setDisable(true);
+            if (directorioProducto != null && directorioProducto.isDirectory()) {
+                txtNombre.setText(directorioProducto.getAbsolutePath());
+                txtNombre.setPromptText("Pieza asociada a: " + directorioProducto.getName());
+            } else {
+                txtNombre.setText("");
+                txtNombre.setPromptText("PIEZA: SELECCIONE Producto en Catálogo");
+            }
         }
     }
 
-    /**
-     * Función auxiliar para mostrar un cuadro de alerta.
-     */
+
+    @FXML
+    public void onCargarClicked(ActionEvent event) {
+        // ... (resto del method sin cambios) ...
+        String valorIngresado = txtNombre.getText(); // Puede ser nombre de producto o ruta de directorio
+        boolean esPieza = radioPieza.isSelected();
+
+        // Validación 1: Archivo seleccionado
+        if (this.archivoSeleccionado == null) {
+            mostrarAlerta(AlertType.ERROR, "Archivo Requerido", "Debe seleccionar o soltar un archivo (.stl, .3mf, .gcode) para cargar.");
+            return;
+        }
+
+        // Validación 2: Específica por modo
+        if (esPieza) {
+            if (directorioProducto == null || !directorioProducto.isDirectory()) {
+                mostrarAlerta(AlertType.ERROR, "Producto Requerido (Pieza)",
+                        "Para cargar una PIEZA, primero seleccione la carpeta del PRODUCTO correspondiente en el Gestor de Catálogo.");
+                return;
+            }
+            valorIngresado = directorioProducto.getAbsolutePath();
+
+        } else {
+            if (valorIngresado == null || valorIngresado.trim().isEmpty()) {
+                mostrarAlerta(AlertType.ERROR, "Nombre Requerido (Producto)",
+                        "Debe ingresar un NOMBRE para el nuevo producto.");
+                return;
+            }
+            if (valorIngresado.trim().length() < 3) {
+                mostrarAlerta(AlertType.WARNING, "Nombre Inválido", "El nombre del producto debe tener al menos 3 caracteres para generar el código.");
+                return;
+            }
+        }
+
+        // Lógica de carga
+        try {
+            if (esPieza) {
+                catalogoService.procesarCargaPieza(this.archivoSeleccionado, valorIngresado);
+                mostrarAlerta(AlertType.INFORMATION, "Éxito", "Pieza cargada y asociada correctamente al producto.");
+            } else {
+                catalogoService.procesarCargaProducto(this.archivoSeleccionado, valorIngresado.trim());
+                mostrarAlerta(AlertType.INFORMATION, "Éxito", "Nuevo producto creado y archivo cargado correctamente.");
+            }
+            this.cargaExitosa = true;
+            closeWindow(event);
+
+        } catch (IllegalArgumentException | IOException e) {
+            mostrarAlerta(AlertType.ERROR, "Error al Cargar", e.getMessage());
+            this.cargaExitosa = false;
+        } catch (Exception e) {
+            mostrarAlerta(AlertType.ERROR, "Error Inesperado", "Ocurrió un error no previsto: " + e.getMessage());
+            this.cargaExitosa = false;
+            e.printStackTrace();
+        }
+    }
+
+    @FXML
+    public void onCancelarClicked(ActionEvent event) {
+        this.cargaExitosa = false;
+        closeWindow(event);
+    }
+
     private void mostrarAlerta(AlertType tipo, String titulo, String mensaje) {
         Alert alert = new Alert(tipo);
         alert.setTitle(titulo);
         alert.setHeaderText(null);
         alert.setContentText(mensaje);
+        // Aplicar estilo al DialogPane
+        alert.getDialogPane().getStyleClass().add("hubi-dialog"); // IMPORTANTE
+        // Opcional: Aplicar estilo a la ventana/Stage de la alerta
+        // Stage stage = (Stage) alert.getDialogPane().getScene().getWindow();
+        // stage.getScene().getStylesheets().add(getClass().getResource("/com/calmasalud/hubi/ui/css/styles.css").toExternalForm());
         alert.showAndWait();
     }
 
-    private void actualizarEstadoCampos(boolean esProducto) {
-        // 1. Reseteo de campos comunes
-        txtNombre.clear();
-        btnBuscarDirectorio.setVisible(false); // Siempre oculto en este flujo
-        txtNombre.setDisable(false);
-        txtNombre.setEditable(true);
-
-        if (esProducto) {
-            // MODO PRODUCTO (Nuevo Nombre): SOLO SE PUEDE ESCRIBIR EL NOMBRE
-            txtNombre.setPromptText("Ingrese el nombre del nuevo producto (ej: SOPORTE)");
-
-        } else {
-            // MODO PIEZA (Asociado a Producto Existente)
-            txtNombre.setEditable(false);
-            txtNombre.setDisable(true);
-
-            if (directorioProducto != null && directorioProducto.isDirectory()) {
-                // Caso A: Producto SELECCIONADO -> pre-llenar
-                txtNombre.setText(directorioProducto.getAbsolutePath());
-                txtNombre.setPromptText("PIEZA: Asociada a " + directorioProducto.getName());
-
-            } else {
-                // Caso B: Producto NO SELECCIONADO -> Bloquear y mostrar requerimiento
-                txtNombre.setText("");
-                txtNombre.setPromptText("PIEZA: SELECCIONE un Producto en el Catálogo.");
-            }
-        }
+    private void closeWindow(ActionEvent event) {
+        ((Node) (event.getSource())).getScene().getWindow().hide();
     }
 
-    // Se mantiene onBuscarProductoClicked para la compatibilidad del FXML si el botón se reusa.
     @FXML
     public void onBuscarProductoClicked(ActionEvent event) {
-        DirectoryChooser dirChooser = new DirectoryChooser();
-        dirChooser.setTitle("Seleccionar Directorio de Producto Existente");
-
-        // Se configura la carpeta inicial del diálogo al Repositorio Master
-        File initialDirectory = new File(REPOSITORIO_BASE_PATH);
-        if (initialDirectory.exists()) {
-            dirChooser.setInitialDirectory(initialDirectory);
-        }
-
-        File directorioSeleccionado = dirChooser.showDialog(null);
-
-        if (directorioSeleccionado != null) {
-            // Verificación de seguridad: solo puede seleccionar directorios dentro del Repositorio Master de HUBI
-            if (directorioSeleccionado.getAbsolutePath().startsWith(REPOSITORIO_BASE_PATH)) {
-                // Coloca la RUTA COMPLETA en el campo de texto.
-                txtNombre.setText(directorioSeleccionado.getAbsolutePath());
-            } else {
-                txtNombre.clear();
-            }
-        }
-    }
-
-    @FXML
-    public void onCargarClicked(ActionEvent event) {
-
-        String valorIngresado = txtNombre.getText();
-        boolean esPieza = radioPieza.isSelected();
-
-        // MODIFICADO: 1. VALIDACIÓN GENERAL: Asegurar que se haya seleccionado un archivo AHORA
-        if (this.archivoSeleccionado == null) {
-            mostrarAlerta(AlertType.ERROR, "Error de Validación", "Debe seleccionar un archivo de diseño antes de continuar.");
-            return;
-        }
-
-        // 2. VALIDACIÓN ESPECÍFICA POR MODO
-        if (esPieza) {
-            // REGLA DE NEGOCIO: Piezas deben tener Producto seleccionado
-            if (directorioProducto == null || !directorioProducto.isDirectory()) {
-                mostrarAlerta(AlertType.ERROR, "Error de Asociación (RF8)",
-                        "Para cargar una PIEZA, debe seleccionar previamente la carpeta del PRODUCTO al que pertenece en el 'Repositorio Master'.");
-                return; // Detiene el proceso y muestra la alerta.
-            }
-            // Para PIEZA, valorIngresado es la ruta absoluta del directorioProducto,
-            // no necesitamos validar el texto ya que fue rellenado automáticamente.
-
-        } else {
-            // MODO PRODUCTO: Solo se necesita el nombre ingresado por el usuario.
-            if (valorIngresado == null || valorIngresado.trim().isEmpty()) {
-                mostrarAlerta(AlertType.ERROR, "Error de Validación",
-                        "Debe ingresar un NOMBRE para el nuevo Producto.");
-                return;
-            }
-        }
-
-        // Si la validación pasa, ejecutamos la lógica de negocio
-        try {
-            if (esPieza) {
-                // Caso 1: Carga como PIEZA
-                catalogoService.procesarCargaPieza(this.archivoSeleccionado, valorIngresado);
-            } else {
-                // Caso 2: Carga como PRODUCTO
-                catalogoService.procesarCargaProducto(this.archivoSeleccionado, valorIngresado);
-            }
-
-            this.cargaExitosa = true;
-            // Cerrar la ventana modal al finalizar el proceso
-            ((Node) (event.getSource())).getScene().getWindow().hide();
-
-        } catch (IllegalArgumentException e) {
-            mostrarAlerta(AlertType.ERROR, "Error de Lógica (RF8)", e.getMessage());
-            this.cargaExitosa = false;
-        } catch (IOException e) {
-            mostrarAlerta(AlertType.ERROR, "Error de Archivo/Persistencia", e.getMessage());
-            this.cargaExitosa = false;
-        } catch (Exception e) {
-            System.err.println("Error inesperado: " + e.getMessage());
-            mostrarAlerta(AlertType.ERROR, "Error Inesperado", "Ocurrió un error: " + e.getMessage());
-            this.cargaExitosa = false;
-        }
-    }
-
-    // Metodo vinculado al botón "CANCELAR"
-    @FXML
-    public void onCancelarClicked(ActionEvent event) {
-        this.cargaExitosa = false;
-        // Cierra la ventana modal sin procesar la carga
-        ((Node) (event.getSource())).getScene().getWindow().hide();
+        System.out.println("onBuscarProductoClicked llamado, pero el botón debería estar oculto.");
     }
 }

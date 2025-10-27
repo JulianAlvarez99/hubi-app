@@ -119,3 +119,152 @@
     -fx-border-radius: 8;
     -fx-background-radius: 8;
 }
+
+/* Estilo para las etiquetas de parámetros en el GridPane */
+.parameter-label {
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-color-primary; /* Opcional: usar color primario */
+    -fx-alignment: center-left; /* Asegurar alineación */
+}
+
+/* Estilo base para los VBox raíz de los modales */
+.modal-dialog {
+    -fx-background-color: -fx-color-bg-light; /* Fondo claro */
+    -fx-font-family: "Maven Pro";
+    -fx-font-size: 13px;
+    -fx-text-fill: -fx-color-text-dark; /* Texto oscuro por defecto */
+    -fx-border-color: -fx-color-border; /* Borde sutil opcional */
+    -fx-border-width: 1px;
+}
+
+.modal-dialog .label { /* Estilo general para labels dentro del modal */
+    -fx-text-fill: -fx-color-text-dark;
+}
+
+.modal-dialog .section-label { /* Para títulos como "1. Seleccione..." */
+    -fx-font-weight: bold;
+    -fx-font-size: 1.1em; /* Ligeramente más grande */
+    -fx-text-fill: -fx-color-primary;
+}
+
+/* --- Botones Modales --- */
+/* Botón principal (CARGAR, SÍ) */
+.modal-dialog .action-button {
+    -fx-background-color: -fx-color-primary;
+    -fx-text-fill: -fx-color-text-light;
+    -fx-font-weight: bold;
+    -fx-background-radius: 4;
+    -fx-min-width: 90px;
+}
+.modal-dialog .action-button:hover {
+    -fx-background-color: derive(-fx-color-primary, 20%);
+}
+
+/* Botón secundario (CANCELAR, Seleccionar Archivo) */
+.modal-dialog .secondary-action-button {
+    -fx-background-color: -fx-color-bg-medium;
+    -fx-text-fill: -fx-color-text-dark;
+    -fx-font-weight: normal;
+    -fx-background-radius: 4;
+    -fx-border-color: -fx-color-border;
+    -fx-border-radius: 4;
+    -fx-border-width: 1px;
+    -fx-min-width: 90px;
+}
+.modal-dialog .secondary-action-button:hover {
+    -fx-background-color: derive(-fx-color-bg-medium, -10%);
+}
+
+/* Botón peligroso (ELIMINAR) */
+.modal-dialog .danger-action-button {
+    -fx-background-color: #d9534f;
+    -fx-text-fill: -fx-color-text-light;
+    -fx-font-weight: bold;
+    -fx-background-radius: 4;
+    -fx-min-width: 90px;
+}
+.modal-dialog .danger-action-button:hover {
+    -fx-background-color: derive(#d9534f, -10%);
+}
+/* --- Fin Botones Modales --- */
+
+
+/* --- Zona Drag and Drop --- */
+.drop-zone {
+    -fx-background-color: derive(-fx-color-bg-medium, -5%); /* Ligeramente más oscuro que bg-medium */
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: -fx-color-border;
+    -fx-border-width: 2px;
+    -fx-border-style: dashed;
+    -fx-alignment: center;
+    -fx-padding: 20px;
+}
+
+.drop-zone-label {
+    -fx-text-fill: -fx-color-text-muted;
+    -fx-font-size: 1.1em;
+}
+
+/* Estilo al arrastrar sobre la zona */
+.drop-zone-drag-over {
+    -fx-border-color: -fx-color-accent; /* Borde rosa al arrastrar */
+    -fx-background-color: derive(-fx-color-bg-medium, -10%);
+}
+/* --- Fin Zona Drag and Drop --- */
+
+
+/* --- Estilo para Alertas (Popups) --- */
+/* Estilo para los DialogPane de las Alertas estándar */
+.hubi-dialog {
+    -fx-font-family: "Maven Pro";
+    -fx-background-color: -fx-color-bg-light;
+}
+
+/* Panel de cabecera (donde va el icono y título) */
+.hubi-dialog .header-panel {
+    -fx-background-color: -fx-color-primary; /* Fondo azul oscuro */
+}
+/* Icono de la alerta */
+.hubi-dialog .header-panel .graphic-container .icon{
+    /* Podrías ajustar tamaño si fuera necesario */
+}
+/* Texto del título en la cabecera (si lo hubiera, usualmente es null) */
+.hubi-dialog .header-panel .label {
+    -fx-font-size: 1.2em;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-color-text-light; /* Texto blanco */
+    -fx-padding: 10px;
+}
+
+/* Texto del contenido principal */
+.hubi-dialog .content.label {
+    -fx-font-size: 14px;
+    -fx-padding: 15px 10px;
+    -fx-text-fill: -fx-color-text-dark;
+}
+
+/* Estilo para los botones (OK, Cancel, Sí) dentro de las alertas */
+.hubi-dialog .button-bar .button{
+    -fx-background-color: -fx-color-primary;
+    -fx-text-fill: -fx-color-text-light;
+    -fx-background-radius: 4;
+    -fx-min-width: 80px;
+    -fx-font-weight: bold;
+}
+.hubi-dialog .button-bar .button:hover {
+    -fx-background-color: derive(-fx-color-primary, 20%);
+}
+/* Estilo específico para botón Cancelar en Alertas */
+.hubi-dialog .button-bar .button:cancel {
+    -fx-background-color: -fx-color-bg-medium;
+    -fx-text-fill: -fx-color-text-dark;
+    -fx-border-color: -fx-color-border;
+    -fx-border-radius: 4;
+    -fx-border-width: 1px;
+    -fx-font-weight: normal;
+}
+.hubi-dialog .button-bar .button:cancel:hover {
+    -fx-background-color: derive(-fx-color-bg-medium, -10%);
+}
+/* --- Fin Estilo para Alertas --- */
