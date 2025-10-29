@@ -1,0 +1,58 @@
+package com.calmasalud.hubi.ui.util;
+
+import java.util.prefs.Preferences;
+
+public class UISettings {
+
+    // Nodo de preferencias único para nuestra aplicación
+    private static final String PREF_NODE_NAME = "com/calmasalud/hubi";
+
+    // Claves para las propiedades
+    private static final String KEY_WINDOW_WIDTH = "windowWidth";
+    private static final String KEY_WINDOW_HEIGHT = "windowHeight";
+    private static final String KEY_RESOLUTION_PRESET = "resolutionPreset";
+
+    // Valores por defecto
+    private static final double DEFAULT_WIDTH = 1024;
+    private static final double DEFAULT_HEIGHT = 768;
+    private static final String DEFAULT_PRESET = "1024 x 768";
+
+    private Preferences prefs;
+
+    public UISettings() {
+        // Obtiene el nodo de preferencias para el usuario actual
+        this.prefs = Preferences.userRoot().node(PREF_NODE_NAME);
+    }
+
+    /**
+     * Guarda la última dimensión de la ventana seleccionada.
+     */
+    public void saveWindowSize(double width, double height) {
+        prefs.putDouble(KEY_WINDOW_WIDTH, width);
+        prefs.putDouble(KEY_WINDOW_HEIGHT, height);
+    }
+
+    /**
+     * Carga la última dimensión guardada.
+     * Retorna un array [ancho, alto].
+     */
+    public double[] loadWindowSize() {
+        double width = prefs.getDouble(KEY_WINDOW_WIDTH, DEFAULT_WIDTH);
+        double height = prefs.getDouble(KEY_WINDOW_HEIGHT, DEFAULT_HEIGHT);
+        return new double[]{width, height};
+    }
+
+    /**
+     * Guarda el nombre del preset seleccionado en el ComboBox.
+     */
+    public void saveResolutionPreset(String preset) {
+        prefs.put(KEY_RESOLUTION_PRESET, preset);
+    }
+
+    /**
+     * Carga el nombre del último preset seleccionado.
+     */
+    public String loadResolutionPreset() {
+        return prefs.get(KEY_RESOLUTION_PRESET, DEFAULT_PRESET);
+    }
+}

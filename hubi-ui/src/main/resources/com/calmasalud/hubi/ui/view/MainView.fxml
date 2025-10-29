@@ -49,6 +49,7 @@
                 <ToggleButton fx:id="btnInventario" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleMenuInventario" styleClass="menu-toggle-button" text="INVENTARIO" toggleGroup="$menuToggleGroup" />
 <!--                {/* Opcional: Podrías añadir wrapText="true" si prefieres que el texto salte de línea */}-->
                 <ToggleButton fx:id="btnReportes" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleMenuReportes" styleClass="menu-toggle-button" text="REPORTES Y SEGUIMIENTO" toggleGroup="$menuToggleGroup" wrapText="false"/>
+                <ToggleButton fx:id="btnConfiguracion" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleMenuConfiguracion" styleClass="menu-toggle-button" text="CONFIGURACIÓN" toggleGroup="$menuToggleGroup" />
             </children>
             <padding>
                 <Insets top="10.0" />

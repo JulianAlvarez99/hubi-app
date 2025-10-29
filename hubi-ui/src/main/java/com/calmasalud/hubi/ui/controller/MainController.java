@@ -1,5 +1,5 @@
 package com.calmasalud.hubi.ui.controller;
-
+import com.calmasalud.hubi.ui.controller.ConfiguracionController;
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -11,7 +11,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.StackPane;
 import javafx.util.Duration;
-
+import javafx.stage.Stage;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -36,7 +36,7 @@ public class MainController {
         // 2. Cargar la vista de catálogo por defecto al iniciar
         // (Asegurarnos que el botón esté seleccionado y cargar la vista)
         if (btnCatalogo.isSelected()) {
-            loadView("/com/calmasalud/hubi/ui/view/GestorCatalogoView.fxml");
+            loadView("/com/calmasalud/hubi/ui/view/GestorCatalogoView.fxml", null);
         }
     }
 
@@ -56,7 +56,7 @@ public class MainController {
     @FXML
     void handleMenuCatalogo(ActionEvent event) {
         System.out.println("Cargando vista Catálogo...");
-        loadView("/com/calmasalud/hubi/ui/view/GestorCatalogoView.fxml");
+        loadView("/com/calmasalud/hubi/ui/view/GestorCatalogoView.fxml", null);
     }
 
     @FXML
@@ -77,12 +77,47 @@ public class MainController {
     }
 
     /**
+     * AÑADIDO: Manejador para el botón de Configuración.
+     * Este method inyectará el Stage principal en el controlador de configuración.
+     */
+    @FXML
+    void handleMenuConfiguracion(ActionEvent event) {
+        System.out.println("Cargando vista Configuración...");
+        // Pasamos una función lambda que se ejecutará después de cargar el FXML
+        // para inyectar el Stage.
+        loadView("/com/calmasalud/hubi/ui/view/ConfiguracionView.fxml", (loader) -> {
+            try {
+                // Obtener el Stage principal (la ventana)
+                Stage mainStage = (Stage) mainContentArea.getScene().getWindow();
+
+                // Obtener el controlador de la vista que acabamos de cargar
+                ConfiguracionController controller = loader.getController();
+
+                // Inyectar el Stage en el controlador
+                controller.setMainStage(mainStage);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    /**
      * Funcion ayudante para cargar un FXML en el área de contenido principal.
      */
-    private void loadView(String fxmlPath) {
+    /**
+     * MODIFICADO: Funcion ayudante para cargar FXML.
+     * Añadido un "callback" para poder ejecutar código (como inyectar el Stage)
+     * después de que el loader haya cargado el controlador.
+     */
+    private void loadView(String fxmlPath, java.util.function.Consumer<FXMLLoader> postLoadCallback) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath));
             Node view = loader.load();
+
+            // Ejecutar el callback (si existe) DESPUÉS de .load()
+            if (postLoadCallback != null) {
+                postLoadCallback.accept(loader);
+            }
 
             mainContentArea.getChildren().clear();
             mainContentArea.getChildren().add(view);

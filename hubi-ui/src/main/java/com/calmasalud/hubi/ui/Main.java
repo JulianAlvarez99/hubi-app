@@ -1,13 +1,14 @@
 package com.calmasalud.hubi.ui;
 
 import com.calmasalud.hubi.persistence.db.SQLiteManager;
+import com.calmasalud.hubi.ui.util.UISettings;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.text.Font; // Importar Font
 import javafx.stage.Stage;
-
+import javafx.application.Platform;
 import java.io.IOException;
 import java.util.Objects; // Importar Objects
 
@@ -44,31 +45,39 @@ public class Main extends Application {
         FXMLLoader loader = new FXMLLoader(Objects.requireNonNull(getClass().getResource("/com/calmasalud/hubi/ui/view/MainView.fxml")));
         Parent root = loader.load();
 
-        // 3. Configurar la escena con un tamaño inicial razonable
-        Scene scene = new Scene(root, 1024, 768); // Tamaño inicial sugerido
+        // 4. Cargar configuración de tamaño
+        UISettings settings = new UISettings();
+        double[] size = settings.loadWindowSize(); // [width, height]
 
-        // 4. Aplicar la hoja de estilos CSS
+        // 5. Configurar la escena con el tamaño CARGADO (en lugar del fijo 1024x768)
+        Scene scene = new Scene(root, size[0], size[1]);
+
+        // 6. Aplicar la hoja de estilos (código existente)
         try {
             scene.getStylesheets().add(
                     Objects.requireNonNull(getClass().getResource("/com/calmasalud/hubi/ui/css/styles.css")).toExternalForm()
             );
-        } catch (NullPointerException e) {
-            System.err.println("Error Crítico: No se pudo encontrar la hoja de estilos styles.css.");
-            // Considerar salir o mostrar un error grave
         } catch (Exception e) {
             System.err.println("Error al cargar la hoja de estilos styles.css: " + e.getMessage());
-            e.printStackTrace();
         }
 
-
-        // 5. Configurar el escenario (la ventana)
-        primaryStage.setTitle("Sistema HUBI v1.0 - Calma Salud"); // Título más descriptivo
+        // 7. Configurar el escenario (código existente)
+        primaryStage.setTitle("Sistema HUBI v1.0 - Calma Salud");
         primaryStage.setScene(scene);
+        primaryStage.setMinWidth(800);
+        primaryStage.setMinHeight(600);
 
-        // --- AJUSTES DE RESPONSIVIDAD ---
-        primaryStage.setMinWidth(800); // Ancho mínimo para mantener usabilidad
-        primaryStage.setMinHeight(600); // Alto mínimo
-        // ---------------------------------
+        // 8. (Opcional pero recomendado) Guardar el tamaño si el usuario lo cambia manualmente
+        // Esto guarda el tamaño cuando el usuario cierra la ventana.
+        primaryStage.setOnCloseRequest(event -> {
+            settings.saveWindowSize(primaryStage.getWidth(), primaryStage.getHeight());
+            // (Opcional: guardar también posición)
+            // settings.saveWindowPosition(primaryStage.getX(), primaryStage.getY());
+            Platform.exit();
+            System.exit(0);
+        });
+
+        // --- FIN DE MODIFICACIÓN ---
 
         primaryStage.show();
     }
