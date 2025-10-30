@@ -48,6 +48,7 @@ public class Main extends Application {
         // 4. Cargar configuración de tamaño
         UISettings settings = new UISettings();
         double[] size = settings.loadWindowSize(); // [width, height]
+        double baseFontSize = settings.loadBaseFontSize();
 
         // 5. Configurar la escena con el tamaño CARGADO (en lugar del fijo 1024x768)
         Scene scene = new Scene(root, size[0], size[1]);
@@ -61,6 +62,12 @@ public class Main extends Application {
             System.err.println("Error al cargar la hoja de estilos styles.css: " + e.getMessage());
         }
 
+        // --- APLICAR TAMAÑO FUENTE BASE AL NODO RAÍZ ANTES DE MOSTRAR ---
+        if (scene.getRoot() != null) {
+            scene.getRoot().setStyle(String.format("-fx-base-font-size: %.2fpx;", baseFontSize));
+        }
+        // ----------------------------------------------------------------
+
         // 7. Configurar el escenario (código existente)
         primaryStage.setTitle("Sistema HUBI v1.0 - Calma Salud");
         primaryStage.setScene(scene);
@@ -73,6 +80,10 @@ public class Main extends Application {
             settings.saveWindowSize(primaryStage.getWidth(), primaryStage.getHeight());
             // (Opcional: guardar también posición)
             // settings.saveWindowPosition(primaryStage.getX(), primaryStage.getY());
+            // Si quieres guardar el tamaño basado en el tamaño final al cerrar:
+            // double finalBaseSize = calculateBaseFontSize(primaryStage.getWidth()); // Necesitarías mover calculateBaseFontSize a UISettings o aquí
+            // settings.saveBaseFontSize(finalBaseSize);
+
             Platform.exit();
             System.exit(0);
         });
@@ -80,6 +91,7 @@ public class Main extends Application {
         // --- FIN DE MODIFICACIÓN ---
 
         primaryStage.show();
+        primaryStage.centerOnScreen();
     }
 
     public static void main(String[] args) {

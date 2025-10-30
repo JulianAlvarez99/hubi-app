@@ -11,11 +11,12 @@ public class UISettings {
     private static final String KEY_WINDOW_WIDTH = "windowWidth";
     private static final String KEY_WINDOW_HEIGHT = "windowHeight";
     private static final String KEY_RESOLUTION_PRESET = "resolutionPreset";
-
+    private static final String KEY_BASE_FONT_SIZE = "baseFontSize";
     // Valores por defecto
     private static final double DEFAULT_WIDTH = 1024;
     private static final double DEFAULT_HEIGHT = 768;
     private static final String DEFAULT_PRESET = "1024 x 768";
+    private static final double DEFAULT_BASE_FONT_SIZE = 14.0;
 
     private Preferences prefs;
 
@@ -54,5 +55,19 @@ public class UISettings {
      */
     public String loadResolutionPreset() {
         return prefs.get(KEY_RESOLUTION_PRESET, DEFAULT_PRESET);
+    }
+
+    /**
+     * Guarda el tamaño de fuente base (en px) asociado al preset seleccionado.
+     */
+    public void saveBaseFontSize(double size) {
+        prefs.putDouble(KEY_BASE_FONT_SIZE, size);
+    }
+
+    /**
+     * Carga el tamaño de fuente base guardado (en px).
+     */
+    public double loadBaseFontSize() {
+        return prefs.getDouble(KEY_BASE_FONT_SIZE, DEFAULT_BASE_FONT_SIZE);
     }
 }

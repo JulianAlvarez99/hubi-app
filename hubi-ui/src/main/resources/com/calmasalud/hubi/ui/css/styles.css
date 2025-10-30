@@ -15,7 +15,14 @@
 
     /* Fuente principal de la aplicación */
     -fx-font-family: "Maven Pro";
-    -fx-font-size: 14px;
+
+    /* * Variable para el tamaño base.
+     * Java la sobrescribirá (ej. 12px, 14px, 16px) según la configuración.
+     */
+    -fx-base-font-size: 14px;
+
+    /* El tamaño de fuente raíz AHORA usa la variable */
+    -fx-font-size: -fx-base-font-size;
 }
 
 /* --- Estilos del MainView.fxml --- */
@@ -29,20 +36,19 @@
 }
 
 .header-logo {
-    /*-fx-font-size: 35px;*/
-    -fx-font-size: 2.5em;
+    -fx-font-size: 2.5em; /* 35px / 14px */
     -fx-font-weight: bold;
     -fx-text-fill: -fx-color-primary;
 }
 
 .header-title {
-    -fx-font-size: 1.28em;
+    -fx-font-size: 1.29em; /* 18px / 14px */
     -fx-font-weight: bold;
     -fx-text-fill: -fx-color-primary;
 }
 
 .header-datetime {
-    -fx-font-size: 1em;
+    -fx-font-size: 1em; /* 14px / 14px */
     -fx-text-fill: -fx-color-text-muted;
 }
 
@@ -55,7 +61,7 @@
 }
 
 .menu-toggle-button {
-    -fx-font-size: 13px;
+    -fx-font-size: 0.93em; /* 13px / 14px */
     -fx-font-weight: bold;
     -fx-background-color: transparent;
     -fx-text-fill: -fx-color-primary;
@@ -83,7 +89,7 @@
 }
 
 .footer-text {
-    -fx-font-size: 11px;
+    -fx-font-size: 0.79em; /* 11px / 14px */
     -fx-text-fill: -fx-color-text-muted; /* Color grisáceo */
 }
 
@@ -106,7 +112,7 @@
 }
 
 .section-title {
-    -fx-font-size: 16px;
+    -fx-font-size: 1.15em; /* 16px / 14px */
     -fx-font-weight: bold;
     -fx-text-fill: -fx-color-primary;
 }
@@ -123,6 +129,7 @@
 
 /* Estilo para las etiquetas de parámetros en el GridPane */
 .parameter-label {
+    -fx-font-size: 1em; /* 14px / 14px */
     -fx-font-weight: bold;
     -fx-text-fill: -fx-color-primary; /* Opcional: usar color primario */
     -fx-alignment: center-left; /* Asegurar alineación */
@@ -132,7 +139,7 @@
 .modal-dialog {
     -fx-background-color: -fx-color-bg-light; /* Fondo claro */
     -fx-font-family: "Maven Pro";
-    -fx-font-size: 13px;
+    -fx-font-size: 0.93em; /* 13px / 14px */
     -fx-text-fill: -fx-color-text-dark; /* Texto oscuro por defecto */
     -fx-border-color: -fx-color-border; /* Borde sutil opcional */
     -fx-border-width: 1px;
@@ -144,7 +151,7 @@
 
 .modal-dialog .section-label { /* Para títulos como "1. Seleccione..." */
     -fx-font-weight: bold;
-    -fx-font-size: 1.1em; /* Ligeramente más grande */
+    -fx-font-size: 1.1em; /* Relativo al .modal-dialog (1.1 * 0.93em) */
     -fx-text-fill: -fx-color-primary;
 }
 
@@ -204,7 +211,7 @@
 
 .drop-zone-label {
     -fx-text-fill: -fx-color-text-muted;
-    -fx-font-size: 1.1em;
+    -fx-font-size: 1.1em; /* Relativo al tamaño de fuente del .modal-dialog */
 }
 
 /* Estilo al arrastrar sobre la zona */
@@ -218,6 +225,7 @@
 /* --- Estilo para Alertas (Popups) --- */
 /* Estilo para los DialogPane de las Alertas estándar */
 .hubi-dialog {
+    /* La fuente se hereda del .root principal si el diálogo es propiedad de la escena */
     -fx-font-family: "Maven Pro";
     -fx-background-color: -fx-color-bg-light;
 }
@@ -232,7 +240,7 @@
 }
 /* Texto del título en la cabecera (si lo hubiera, usualmente es null) */
 .hubi-dialog .header-panel .label {
-    -fx-font-size: 1.2em;
+    -fx-font-size: 1.2em; /* Relativo al -fx-font-size del .root */
     -fx-font-weight: bold;
     -fx-text-fill: -fx-color-text-light; /* Texto blanco */
     -fx-padding: 10px;
@@ -240,7 +248,7 @@
 
 /* Texto del contenido principal */
 .hubi-dialog .content.label {
-    -fx-font-size: 14px;
+    -fx-font-size: 1em; /* Relativo al -fx-font-size del .root (14px por defecto) */
     -fx-padding: 15px 10px;
     -fx-text-fill: -fx-color-text-dark;
 }
