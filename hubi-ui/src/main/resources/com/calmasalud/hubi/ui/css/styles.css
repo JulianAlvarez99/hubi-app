@@ -149,10 +149,29 @@
     -fx-text-fill: -fx-color-text-dark;
 }
 
-.modal-dialog .section-label { /* Para títulos como "1. Seleccione..." */
+/* Hace que los labels de sección (1., 2., 3.) sean bold y color primario */
+.modal-dialog .section-label {
     -fx-font-weight: bold;
-    -fx-font-size: 1.1em; /* Relativo al .modal-dialog (1.1 * 0.93em) */
+    -fx-font-size: 1.1em; /* Ligeramente más grande */
     -fx-text-fill: -fx-color-primary;
+}
+
+/* Estilo para los RadioButtons (normal) */
+.modal-dialog .radio-button {
+    -fx-font-weight: normal;
+}
+
+/* Estilo para RadioButton SELECCIONADO (bold y color) */
+.modal-dialog .radio-button:selected {
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-color-primary;
+}
+
+/* Etiqueta de información de formato (.stl, .3mf...) */
+.modal-dialog .format-info-label {
+    -fx-font-size: 0.9em;
+    -fx-text-fill: -fx-color-text-muted;
+    -fx-padding: -8px 0 5px 5px; /* Ajuste para que quede debajo del botón */
 }
 
 /* --- Botones Modales --- */
@@ -197,28 +216,45 @@
 /* --- Fin Botones Modales --- */
 
 
-/* --- Zona Drag and Drop --- */
+/* Zona de Drag and Drop (Re-definición) */
 .drop-zone {
-    -fx-background-color: derive(-fx-color-bg-medium, -5%); /* Ligeramente más oscuro que bg-medium */
+    -fx-background-color: #f9f9f9; /* Fondo muy claro */
     -fx-background-radius: 8;
     -fx-border-radius: 8;
-    -fx-border-color: -fx-color-border;
+    -fx-border-color: -fx-color-border; /* Borde gris claro */
     -fx-border-width: 2px;
-    -fx-border-style: dashed;
+    -fx-border-style: dashed; /* <-- ESTA ES LA LÍNEA PUNTEADA */
     -fx-alignment: center;
-    -fx-padding: 20px;
+    -fx-padding: 10px; /* Padding interno */
 }
 
+/* Label dentro de la zona de drop */
 .drop-zone-label {
     -fx-text-fill: -fx-color-text-muted;
-    -fx-font-size: 1.1em; /* Relativo al tamaño de fuente del .modal-dialog */
+    -fx-font-size: 1.2em;
+    -fx-font-weight: bold; /* Texto en negrita */
 }
 
-/* Estilo al arrastrar sobre la zona */
+/* Estilo al arrastrar sobre la zona (Borde de acento) */
 .drop-zone-drag-over {
-    -fx-border-color: -fx-color-accent; /* Borde rosa al arrastrar */
-    -fx-background-color: derive(-fx-color-bg-medium, -10%);
+    -fx-border-color: -fx-color-accent; /* Borde rosa (acento) */
+    -fx-background-color: #fdf0f0; /* Fondo rosa muy claro */
 }
+
+/* ListView dentro de la zona de drop */
+.drop-zone .list-view {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+}
+
+.drop-zone .list-view .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-color-text-dark;
+    -fx-font-size: 0.95em;
+    -fx-padding: 3px 8px;
+}
+
+
 /* --- Fin Zona Drag and Drop --- */
 
 
@@ -275,5 +311,14 @@
 }
 .hubi-dialog .button-bar .button:cancel:hover {
     -fx-background-color: derive(-fx-color-bg-medium, -10%);
+}
+
+/* --- Estilos para ConfirmacionModal (Eliminar) --- */
+
+/* Estilo para el mensaje principal del modal de confirmación */
+.confirmation-message {
+    -fx-font-size: 1.1em;
+    -fx-font-weight: normal; /* El 'bold' es opcional aquí, a veces 'normal' da más seriedad */
+    -fx-text-fill: -fx-color-text-dark;
 }
 /* --- Fin Estilo para Alertas --- */

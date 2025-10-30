@@ -3,26 +3,27 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
-<?import javafx.scene.text.Font?>
 
-<VBox styleClass="modal-dialog" alignment="CENTER" prefHeight="180.0" prefWidth="400.0" spacing="20.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.ConfirmacionController">
+<VBox styleClass="modal-dialog" alignment="CENTER" prefHeight="240.0" prefWidth="400.0" spacing="15.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.ConfirmacionController">
     <padding>
         <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
     </padding>
     <children>
-        <Label fx:id="lblMensaje" alignment="CENTER" maxWidth="Infinity" prefWidth="360.0" text="¿Desea eliminar el objeto [Nombre del Objeto] de manera permanente?" textAlignment="CENTER" wrapText="true">
-            <font>
-                <Font size="14.0" />
-            </font>
-<!--            {/* Opcional: Podrías quitar <font> y controlar tamaño desde CSS */ }-->
-        </Label>
+        <ImageView fitHeight="48.0" fitWidth="48.0" pickOnBounds="true" preserveRatio="true">
+            <image>
+                <Image url="@../images/delete_warning.png" />
+            </image>
+        </ImageView>
+
+        <Label fx:id="lblMensaje" alignment="CENTER" maxWidth="Infinity" prefWidth="360.0" text="¿Desea eliminar el objeto [Nombre del Objeto] de manera permanente?" textAlignment="CENTER" wrapText="true" styleClass="confirmation-message" />
+
         <HBox alignment="CENTER" spacing="30.0">
             <children>
-<!--                {/* Aplicada clase danger */}-->
                 <Button fx:id="btnConfirmar" styleClass="danger-action-button" defaultButton="true" mnemonicParsing="false" onAction="#handleConfirmar" prefWidth="120.0" text="Sí, Eliminar" />
-<!--                {/* Aplicada clase secondary */}-->
                 <Button fx:id="btnCancelar" styleClass="secondary-action-button" cancelButton="true" mnemonicParsing="false" onAction="#handleCancelar" prefWidth="100.0" text="Cancelar" />
             </children>
             <VBox.margin>
