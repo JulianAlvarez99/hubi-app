@@ -356,7 +356,7 @@ public class TipoCargaController {
                 mostrarAlerta(AlertType.WARNING, "Carga Parcial",
                         "Cargados: " + archivosCargados + "\nFallidos: " + archivosFallidos + "\n\nErrores:\n" + errores.toString());
                 this.cargaExitosa = (archivosCargados > 0); // Fue exitosa si al menos uno se cargó
-                if (this.cargaExitosa) { // Si algo se cargó, cerrar. Si todo falló, quedarse.
+                if (this.cargaExitosa) { // Si algo se cargó, cerrar. Si  falló, quedarse.
                     closeWindow(event);
                 }
             }
