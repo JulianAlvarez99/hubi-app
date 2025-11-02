@@ -12,20 +12,16 @@
 <?import javafx.scene.layout.ColumnConstraints?>
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.Priority?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.RowConstraints?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
-<!--        {/* SplitPane principal */}-->
 <SplitPane dividerPositions="0.55" prefHeight="700.0" prefWidth="1000.0" styleClass="module-container" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.CatalogManagerController">
 
     <items>
-<!--        {/* Panel Izquierdo */}-->
         <VBox spacing="10.0">
             <children>
-<!--                {/* ... (Contenido VBox izquierdo sin cambios) ... */}-->
                 <HBox spacing="10.0">
                     <children>
                         <TextField fx:id="txtBusqueda" promptText="Buscar en el repositorio..." HBox.hgrow="ALWAYS" />
@@ -60,7 +56,6 @@
                     <children>
                         <Button fx:id="btnAgregar" mnemonicParsing="false" onAction="#handleAgregarClick" styleClass="action-button" text="AGREGAR" />
                         <Button fx:id="btnEliminar" mnemonicParsing="false" onAction="#handleEliminarClick" styleClass="action-button" text="ELIMINAR" />
-                        <Button fx:id="btnExtraer" mnemonicParsing="false" styleClass="action-button" text="EXTRAER PARÁMETROS" />
                     </children>
                     <padding>
                         <Insets top="5.0" />
@@ -69,7 +64,6 @@
             </children>
         </VBox>
 
-<!--        {/* Panel Derecho */}-->
         <VBox spacing="15.0">
             <children>
                 <Label fx:id="lblNombreArchivo" styleClass="section-title" text="(Seleccione un archivo)" />
@@ -80,61 +74,45 @@
                 </StackPane>
                 <Label text="PARÁMETROS" styleClass="section-title" />
 
-<!--                {/* GridPane para parámetros */}-->
                 <GridPane hgap="10.0" vgap="8.0">
                     <columnConstraints>
-<!--                        {/* Col 0: Labels - Ancho preferido */}-->
                         <ColumnConstraints hgrow="NEVER" minWidth="150.0" prefWidth="160.0" />
-<!--                        {/* Col 1: TextFields - Crece */}-->
                         <ColumnConstraints hgrow="ALWAYS" minWidth="100.0" prefWidth="100.0" />
-<!--                        {/* === CAMBIO AQUÍ: Col 2: Unidades - Ancho preferido, nunca crece === */}-->
                         <ColumnConstraints hgrow="NEVER" minWidth="50.0" prefWidth="60.0" />
                     </columnConstraints>
                     <rowConstraints>
-<!--                        {/* ... (RowConstraints sin cambios) ... */}-->
-                        <RowConstraints minHeight="10.0" vgrow="SOMETIMES" />
-                        <RowConstraints minHeight="10.0" vgrow="SOMETIMES" />
-                        <RowConstraints minHeight="10.0" vgrow="SOMETIMES" />
-                        <RowConstraints minHeight="10.0" vgrow="SOMETIMES" />
-                        <RowConstraints minHeight="10.0" vgrow="SOMETIMES" />
-                        <RowConstraints minHeight="10.0" vgrow="SOMETIMES" />
-                        <RowConstraints minHeight="10.0" vgrow="SOMETIMES" />
-                        <RowConstraints minHeight="10.0" vgrow="SOMETIMES" />
-                        <RowConstraints minHeight="10.0" vgrow="SOMETIMES" />
-                    </rowConstraints>
+                        <RowConstraints minHeight="10.0" vgrow="SOMETIMES" /> <RowConstraints minHeight="10.0" vgrow="SOMETIMES" /> <RowConstraints minHeight="10.0" vgrow="SOMETIMES" /> <RowConstraints minHeight="10.0" vgrow="SOMETIMES" /> <RowConstraints minHeight="10.0" vgrow="SOMETIMES" /> <RowConstraints minHeight="10.0" vgrow="SOMETIMES" /> <RowConstraints minHeight="10.0" vgrow="SOMETIMES" /> <RowConstraints minHeight="10.0" vgrow="SOMETIMES" /> <RowConstraints minHeight="10.0" vgrow="SOMETIMES" /> </rowConstraints>
                     <children>
-<!--                        {/* === CAMBIO AQUÍ: Añadida styleClass="parameter-label" === */}-->
                         <Label styleClass="parameter-label" text="PESO:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
                         <TextField fx:id="paramPeso" editable="false" promptText="0.0" GridPane.columnIndex="1" GridPane.rowIndex="0" />
                         <Label text="gr" GridPane.columnIndex="2" GridPane.rowIndex="0" />
 
                         <Label styleClass="parameter-label" text="LARGO FILAMENTO:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
                         <TextField fx:id="paramLargo" editable="false" promptText="0.0" GridPane.columnIndex="1" GridPane.rowIndex="1" />
-                        <Label text="cm" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+                        <Label text="m" GridPane.columnIndex="2" GridPane.rowIndex="1" />
 
                         <Label styleClass="parameter-label" text="TIPO FILAMENTO:" GridPane.columnIndex="0" GridPane.rowIndex="2" />
                         <TextField fx:id="paramTipoFilamento" editable="false" promptText="-" GridPane.columnIndex="1" GridPane.rowIndex="2" />
 
-                        <Label styleClass="parameter-label" text="TEMPERATURA:" GridPane.columnIndex="0" GridPane.rowIndex="3" />
-                        <TextField fx:id="paramTemperatura" editable="false" promptText="0" GridPane.columnIndex="1" GridPane.rowIndex="3" />
-                        <Label text="°c" GridPane.columnIndex="2" GridPane.rowIndex="3" />
+                        <Label styleClass="parameter-label" text="COLOR FILAMENTO:" GridPane.columnIndex="0" GridPane.rowIndex="3" />
+                        <TextField fx:id="paramColorFilamento" editable="false" promptText="N/D" GridPane.columnIndex="1" GridPane.rowIndex="3" />
 
-                        <Label styleClass="parameter-label" text="VELOCIDAD:" GridPane.columnIndex="0" GridPane.rowIndex="4" />
-                        <TextField fx:id="paramVelocidad" editable="false" promptText="0" GridPane.columnIndex="1" GridPane.rowIndex="4" />
-                        <Label text="mm/s" GridPane.columnIndex="2" GridPane.rowIndex="4" />
+                        <Label styleClass="parameter-label" text="TIEMPO IMPRESIÓN:" GridPane.columnIndex="0" GridPane.rowIndex="4" />
+                        <TextField fx:id="paramTiempo" editable="false" promptText="hh:mm:ss" GridPane.columnIndex="1" GridPane.rowIndex="4" />
 
-                        <Label styleClass="parameter-label" text="TIEMPO IMPRESIÓN:" GridPane.columnIndex="0" GridPane.rowIndex="5" />
-                        <TextField fx:id="paramTiempo" editable="false" promptText="hh:mm:ss" GridPane.columnIndex="1" GridPane.rowIndex="5" />
+                        <Label styleClass="parameter-label" text="DENSIDAD FILAMENTO:" GridPane.columnIndex="0" GridPane.rowIndex="5" />
+                        <TextField fx:id="paramDensidad" editable="false" promptText="0.0" GridPane.columnIndex="1" GridPane.rowIndex="5" />
+                        <Label text="g/cm³" GridPane.columnIndex="2" GridPane.rowIndex="5" />
 
-                        <Label styleClass="parameter-label" text="DENSIDAD MATERIAL:" GridPane.columnIndex="0" GridPane.rowIndex="6" />
-                        <TextField fx:id="paramDensidad" editable="false" promptText="0" GridPane.columnIndex="1" GridPane.rowIndex="6" />
-                        <Label text="(%)" GridPane.columnIndex="2" GridPane.rowIndex="6" />
+                        <Label styleClass="parameter-label" text="ALTURA DE CAPA:" GridPane.columnIndex="0" GridPane.rowIndex="6" />
+                        <TextField fx:id="paramAlturaCapa" editable="false" promptText="0.0" GridPane.columnIndex="1" GridPane.rowIndex="6" />
+                        <Label text="mm" GridPane.columnIndex="2" GridPane.rowIndex="6" />
 
-                        <Label styleClass="parameter-label" text="ALTURA DE CAPA:" GridPane.columnIndex="0" GridPane.rowIndex="7" />
-                        <TextField fx:id="paramAlturaCapa" editable="false" promptText="0.0" GridPane.columnIndex="1" GridPane.rowIndex="7" />
-                        <Label text="mm" GridPane.columnIndex="2" GridPane.rowIndex="7" />
+                        <Label styleClass="parameter-label" text="PRECIO POR GRAMO:" GridPane.columnIndex="0" GridPane.rowIndex="7" />
+                        <TextField fx:id="paramPrecioPorGramo" promptText="18.5" GridPane.columnIndex="1" GridPane.rowIndex="7" />
+                        <Label text="ARS/gr" GridPane.columnIndex="2" GridPane.rowIndex="7" />
 
-                        <Label styleClass="parameter-label" text="COSTO:" GridPane.columnIndex="0" GridPane.rowIndex="8" />
+                        <Label styleClass="parameter-label" text="COSTO TOTAL:" GridPane.columnIndex="0" GridPane.rowIndex="8" />
                         <TextField fx:id="paramCosto" editable="false" promptText="0.00" GridPane.columnIndex="1" GridPane.rowIndex="8" />
                         <Label text="ARS ($)" GridPane.columnIndex="2" GridPane.rowIndex="8" />
                     </children>
