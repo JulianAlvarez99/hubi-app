@@ -31,6 +31,11 @@ import java.util.Arrays; // Importar
 import java.util.List;
 import java.util.stream.Collectors; // Importar
 
+import javafx.scene.control.ButtonType; // Importar
+
+import java.util.Optional; // Importar
+import java.util.stream.Collectors;
+
 public class TipoCargaController {
 
     // --- Inyección de Dependencia ---
@@ -38,7 +43,6 @@ public class TipoCargaController {
     private final CatalogService catalogoService = new CatalogService(productSqliteRepository);
     // ---------------------------------
 
-    // MODIFICADO: De File a List<File>
     private List<File> archivosSeleccionados = new ArrayList<>();
 
     // CAMPOS FXML
@@ -48,10 +52,9 @@ public class TipoCargaController {
     @FXML private Button btnBuscarDirectorio;
     @FXML private Button btnSeleccionarArchivo;
 
-    // NUEVOS/MODIFICADOS FXML IDs
-    @FXML private Label lblStatus; // Reemplaza a lblArchivoSeleccionado
+    @FXML private Label lblStatus;
     @FXML private Button btnSeleccionarDirectorio;
-    @FXML private StackPane dropZone; // Cambiado de VBox a StackPane
+    @FXML private StackPane dropZone;
     @FXML private Label lblDropZone;
     @FXML private ListView<String> fileListView;
 
@@ -68,10 +71,7 @@ public class TipoCargaController {
 
     // --- Métodos ---
 
-    // ELIMINADO: setArchivoSeleccionado(File archivo)
-
     public void setDirectorioProducto(File directorioProducto) {
-        // ... (sin cambios) ...
         this.directorioProducto = directorioProducto;
         javafx.application.Platform.runLater(() -> {
             if (this.directorioProducto != null) {
@@ -95,7 +95,7 @@ public class TipoCargaController {
         // --- FIN Configuración Drag and Drop ---
 
         actualizarEstadoCampos(radioProducto.isSelected());
-        updateFileDisplay(); // Limpia la vista al inicio
+        updateFileDisplay();
 
         radioProducto.selectedProperty().addListener((obs, oldValue, isProducto) -> {
             if (isProducto) {
@@ -167,11 +167,9 @@ public class TipoCargaController {
                 new FileChooser.ExtensionFilter("Modelos 3D y GCode", "*.stl", "*.3mf", "*.gcode"),
                 new FileChooser.ExtensionFilter("Todos los archivos", "*.*")
         );
-        // MODIFICADO: showOpenMultipleDialog
         List<File> selected = fileChooser.showOpenMultipleDialog(rootVBox.getScene().getWindow());
 
         if (selected != null && !selected.isEmpty()) {
-            // Sobrescribir la lista con los archivos seleccionados válidos
             archivosSeleccionados = selected.stream()
                     .filter(this::esArchivoValido)
                     .collect(Collectors.toList());
@@ -227,7 +225,7 @@ public class TipoCargaController {
         Dragboard db = event.getDragboard();
         boolean success = false;
         if (db.hasFiles()) {
-            archivosSeleccionados.clear(); // Limpiar lista
+            archivosSeleccionados.clear();
             List<File> files = db.getFiles();
 
             for (File file : files) {
@@ -260,7 +258,6 @@ public class TipoCargaController {
 
 
     private void actualizarEstadoCampos(boolean esProducto) {
-        // ... (sin cambios) ...
         txtNombre.clear();
         btnBuscarDirectorio.setVisible(false);
 
@@ -281,7 +278,9 @@ public class TipoCargaController {
         }
     }
 
-    // MODIFICADO: Para manejar la lista
+    /**
+     * MODIFICADO: Agregada la lógica de advertencia para archivos .3mf solos.
+     */
     @FXML
     public void onCargarClicked(ActionEvent event) {
         String valorIngresado = txtNombre.getText();
@@ -293,6 +292,33 @@ public class TipoCargaController {
             return;
         }
 
+        // === NUEVA LÓGICA DE ADVERTENCIA PARA .3MF SOLO ===
+        if (archivosSeleccionados.size() == 1) {
+            File unicoArchivo = archivosSeleccionados.get(0);
+            String extension = unicoArchivo.getName().toLowerCase();
+
+            if (extension.endsWith(".3mf")) {
+                // Verificar si existe el archivo G-code complementario
+                String baseName = unicoArchivo.getName().substring(0, unicoArchivo.getName().lastIndexOf('.'));
+                File gcodeCompanion = new File(unicoArchivo.getParentFile(), baseName + ".gcode");
+
+                if (!gcodeCompanion.exists()) {
+                    Optional<ButtonType> result = mostrarAlertaConOpcion(
+                            "Advertencia de Extracción",
+                            "Solo ha seleccionado un archivo .3mf (sin .gcode). La extracción de parámetros no será posible o será muy limitada.",
+                            "¿Desea continuar con la subida sin parámetros completos o cancelar para buscar el archivo .gcode?"
+                    );
+
+                    if (result.isPresent() && result.get() == ButtonType.CANCEL) {
+                        return; // Detener la carga si el usuario elige CANCELAR
+                    }
+                    // Si el usuario elige CONTINUAR, el código sigue su curso.
+                }
+            }
+        }
+        // === FIN LÓGICA DE ADVERTENCIA ===
+
+
         // Validación 2: Específica por modo
         if (esPieza) {
             if (directorioProducto == null || !directorioProducto.isDirectory()) {
@@ -300,11 +326,10 @@ public class TipoCargaController {
                         "Para cargar PIEZAS, primero seleccione la carpeta del PRODUCTO correspondiente en el Gestor de Catálogo.");
                 return;
             }
-            valorIngresado = directorioProducto.getAbsolutePath(); // Ruta del producto existente
+            valorIngresado = directorioProducto.getAbsolutePath();
 
         } else { // Modo Producto
             if (archivosSeleccionados.size() > 1) {
-                // Esta validación es por si acaso, la UI ya debería haberlo forzado a "Pieza"
                 mostrarAlerta(AlertType.ERROR, "Error de Lógica", "No se pueden crear múltiples productos a la vez. Seleccione el modo 'PIEZA'.");
                 return;
             }
@@ -328,21 +353,18 @@ public class TipoCargaController {
             for (File archivo : this.archivosSeleccionados) {
                 try {
                     if (esPieza) {
-                        catalogoService.procesarCargaPieza(archivo, valorIngresado); // valorIngresado es la ruta del producto
+                        catalogoService.procesarCargaPieza(archivo, valorIngresado);
                     } else {
-                        // Solo entra aquí si es 1 archivo y modo Producto
-                        catalogoService.procesarCargaProducto(archivo, valorIngresado.trim()); // valorIngresado es el nombre del nuevo producto
+                        catalogoService.procesarCargaProducto(archivo, valorIngresado.trim());
                     }
                     archivosCargados++;
                 } catch (IllegalArgumentException | IOException e) {
-                    // Captura errores de lógica de negocio (ej. nombre < 3) o I/O (ej. no se pudo copiar)
                     archivosFallidos++;
                     errores.append(archivo.getName()).append(": ").append(e.getMessage()).append("\n");
                 } catch (Exception e) {
-                    // Captura errores inesperados (ej. base de datos)
                     archivosFallidos++;
                     errores.append(archivo.getName()).append(": Error inesperado (").append(e.getClass().getSimpleName()).append(")\n");
-                    e.printStackTrace(); // Loguear el stack trace
+                    e.printStackTrace();
                 }
             }
 
@@ -355,13 +377,13 @@ public class TipoCargaController {
             } else {
                 mostrarAlerta(AlertType.WARNING, "Carga Parcial",
                         "Cargados: " + archivosCargados + "\nFallidos: " + archivosFallidos + "\n\nErrores:\n" + errores.toString());
-                this.cargaExitosa = (archivosCargados > 0); // Fue exitosa si al menos uno se cargó
-                if (this.cargaExitosa) { // Si algo se cargó, cerrar. Si  falló, quedarse.
+                this.cargaExitosa = (archivosCargados > 0);
+                if (this.cargaExitosa) {
                     closeWindow(event);
                 }
             }
 
-        } catch (Exception e) { // Error general (improbable que se alcance)
+        } catch (Exception e) {
             mostrarAlerta(AlertType.ERROR, "Error Inesperado", "Ocurrió un error no previsto: " + e.getMessage());
             this.cargaExitosa = false;
             e.printStackTrace();
@@ -370,19 +392,36 @@ public class TipoCargaController {
 
     @FXML
     public void onCancelarClicked(ActionEvent event) {
-        // ... (sin cambios) ...
         this.cargaExitosa = false;
         closeWindow(event);
     }
 
     private void mostrarAlerta(AlertType tipo, String titulo, String mensaje) {
-        // ... (sin cambios) ...
         Alert alert = new Alert(tipo);
         alert.setTitle(titulo);
         alert.setHeaderText(null);
         alert.setContentText(mensaje);
         alert.getDialogPane().getStyleClass().add("hubi-dialog");
         alert.showAndWait();
+    }
+
+    /**
+     * NUEVO MÉTODO AUXILIAR: Muestra alerta con opción Cancelar/Continuar.
+     */
+    private Optional<ButtonType> mostrarAlertaConOpcion(String titulo, String cabecera, String mensaje) {
+        Alert alert = new Alert(AlertType.CONFIRMATION);
+        alert.setTitle(titulo);
+        alert.setHeaderText(cabecera);
+        alert.setContentText(mensaje);
+
+        // Configurar botones
+        ButtonType continuarButton = new ButtonType("Continuar Subida", ButtonType.OK.getButtonData());
+        ButtonType cancelarButton = ButtonType.CANCEL;
+
+        alert.getButtonTypes().setAll(continuarButton, cancelarButton);
+        alert.getDialogPane().getStyleClass().add("hubi-dialog");
+
+        return alert.showAndWait();
     }
 
     private void closeWindow(ActionEvent event) {
