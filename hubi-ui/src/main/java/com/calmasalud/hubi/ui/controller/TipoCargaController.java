@@ -147,7 +147,10 @@ public class TipoCargaController {
         // Si hay más de 1 archivo, forzar modo "Pieza".
         // Modo "Producto" solo disponible si hay exactamente 1 archivo.
         if (archivosSeleccionados.size() > 1) {
-            radioProducto.setDisable(true);
+            radioProducto.setDisable(this.directorioProducto != null);
+            if (this.directorioProducto != null && !radioPieza.isSelected()) {
+                radioPieza.setSelected(true);
+            }
             radioPieza.setSelected(true);
         } else {
             // Habilitar solo si el directorio de producto NO está pre-seleccionado
@@ -329,10 +332,7 @@ public class TipoCargaController {
             valorIngresado = directorioProducto.getAbsolutePath();
 
         } else { // Modo Producto
-            if (archivosSeleccionados.size() > 1) {
-                mostrarAlerta(AlertType.ERROR, "Error de Lógica", "No se pueden crear múltiples productos a la vez. Seleccione el modo 'PIEZA'.");
-                return;
-            }
+
             if (valorIngresado == null || valorIngresado.trim().isEmpty()) {
                 mostrarAlerta(AlertType.ERROR, "Nombre Requerido (Producto)",
                         "Debe ingresar un NOMBRE para el nuevo producto.");
@@ -350,20 +350,32 @@ public class TipoCargaController {
             int archivosFallidos = 0;
             StringBuilder errores = new StringBuilder();
 
-            for (File archivo : this.archivosSeleccionados) {
-                try {
-                    if (esPieza) {
-                        catalogoService.procesarCargaPieza(archivo, valorIngresado);
-                    } else {
-                        catalogoService.procesarCargaProducto(archivo, valorIngresado.trim());
+            if (esPieza) {
+                // Modo Pieza: Bucle, cada archivo es procesado individualmente (con lógica de correlación/duplicado)
+                for (File archivo : this.archivosSeleccionados) {
+                    try {
+                        catalogoService.procesarCargaPieza(archivo, valorIngresado); // valorIngresado es la ruta del directorio
+                        archivosCargados++;
+                    } catch (IllegalArgumentException | IOException e) {
+                        archivosFallidos++;
+                        errores.append(archivo.getName()).append(": ").append(e.getMessage()).append("\n");
+                    } catch (Exception e) {
+                        archivosFallidos++;
+                        errores.append(archivo.getName()).append(": Error inesperado (").append(e.getClass().getSimpleName()).append(")\n");
+                        e.printStackTrace();
                     }
-                    archivosCargados++;
+                }
+            } else {
+                // Modo Producto: Llamada al método de lista (REQ 1)
+                try {
+                    catalogoService.procesarCargaProducto(this.archivosSeleccionados, valorIngresado.trim());
+                    archivosCargados = this.archivosSeleccionados.size();
                 } catch (IllegalArgumentException | IOException e) {
-                    archivosFallidos++;
-                    errores.append(archivo.getName()).append(": ").append(e.getMessage()).append("\n");
+                    archivosFallidos = this.archivosSeleccionados.size();
+                    errores.append("Producto ").append(valorIngresado).append(" (Error General):\n").append(e.getMessage()).append("\n");
                 } catch (Exception e) {
-                    archivosFallidos++;
-                    errores.append(archivo.getName()).append(": Error inesperado (").append(e.getClass().getSimpleName()).append(")\n");
+                    archivosFallidos = this.archivosSeleccionados.size();
+                    errores.append("Producto ").append(valorIngresado).append(": Error inesperado (").append(e.getClass().getSimpleName()).append(")\n");
                     e.printStackTrace();
                 }
             }

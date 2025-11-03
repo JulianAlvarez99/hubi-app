@@ -8,6 +8,7 @@ import com.calmasalud.hubi.persistence.repository.ProductRepositorySQLite;
 import com.calmasalud.hubi.core.service.CatalogService;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -61,28 +62,35 @@ public class CatalogManagerController {
 
     @FXML private Button btnAgregar;
     @FXML private Button btnEliminar;
-    // @FXML private Button btnExtraer; // Eliminado del FXML
 
     // --- Panel Derecho (Parámetros) ---
     @FXML private Label lblNombreArchivo;
     @FXML private StackPane visor3DPlaceholder;
+
+    // NUEVO: ComboBox para seleccionar el perfil de filamento (Tool)
+    @FXML private ComboBox<Map.Entry<Integer, FileParameterExtractor.FilamentProfile>> cmbFilamento;
+
+    // CAMPOS DE FILAMENTO ESPECÍFICO (Actualizados al cambiar cmbFilamento)
     @FXML private TextField paramPeso;
     @FXML private TextField paramLargo;
     @FXML private TextField paramTipoFilamento;
-    @FXML private TextField paramColorFilamento; // ✅ NUEVO CAMPO
-    @FXML private TextField paramTiempo;
+    // ELIMINADO: paramColorFilamento ya no se usa, el color se ve en cmbFilamento.
     @FXML private TextField paramDensidad;
+    @FXML private TextField paramDiametro; // NUEVO CAMPO
+
+    // CAMPOS GENERALES (Tiempo/Altura de Capa)
+    @FXML private TextField paramTiempo;
     @FXML private TextField paramAlturaCapa;
 
-    @FXML private TextField paramPrecioPorGramo; // ✅ CAMPO EDITABLE
-    @FXML private TextField paramCosto;          // ✅ CAMPO CALCULADO
+    @FXML private TextField paramPrecioPorGramo;
+    @FXML private TextField paramCosto;
 
     private static final File REPOSITORIO_BASE =
             Paths.get(System.getProperty("user.home"), "SistemaHUBI", "RepositorioArchivos").toFile();
 
     @FXML
     public void initialize() {
-        System.out.println("Controlador de Catálogo (v2.1 con Tree/Table) inicializado.");
+        System.out.println("Controlador de Catálogo (v2.2 con Multi-Color) inicializado.");
 
         // Configuración CellFactory para TreeView (mostrar nombres amigables)
         folderTreeView.setCellFactory(param -> new TreeCell<>() {
@@ -185,6 +193,17 @@ public class CatalogManagerController {
             }
         });
 
+        // 4. NUEVO Listener para el ComboBox de Filamento (T0, T1, etc.)
+        cmbFilamento.valueProperty().addListener((obs, oldProfileEntry, newProfileEntry) -> {
+            if (newProfileEntry != null) {
+                loadFilamentProfile(newProfileEntry.getValue());
+                recalculateCost(); // Recalcular costo basado en el peso del perfil seleccionado
+            } else {
+                clearFilamentParameters();
+            }
+        });
+
+
         // Carga inicial del TreeView y TableView
         refrescarVistaCatalogo();
     }
@@ -234,21 +253,22 @@ public class CatalogManagerController {
         } else if (extension.toLowerCase(Locale.ROOT).endsWith(".3mf")) {
             companionExtension = ".gcode";
         } else {
-            clearParameters();
-            return; // No procesamos .stl o archivos sin extensión
+            // Si es .stl, se asume que no hay companion de datos relevantes o se busca el .gcode
+            companionExtension = ".gcode";
         }
 
         // 3. Buscar archivos en el mismo directorio
         File parentDir = selectedFile.getParentFile();
-        File companionFile = new File(parentDir, baseName + companionExtension);
-
         List<File> filesToProcess = new ArrayList<>();
         filesToProcess.add(selectedFile);
 
-        // El extractor se encarga de dar prioridad al .3mf (si existe) o usar solo el .gcode.
-        if (companionFile.exists()) {
-            filesToProcess.add(companionFile);
+        if (!companionExtension.isEmpty()) {
+            File companionFile = new File(parentDir, baseName + companionExtension);
+            if (companionFile.exists()) {
+                filesToProcess.add(companionFile);
+            }
         }
+
 
         // 4. Extraer y cargar parámetros
         FileParameterExtractor.PrintInfo info = extractor.extract(filesToProcess);
@@ -257,41 +277,59 @@ public class CatalogManagerController {
 
     /**
      * Carga los parámetros extraídos en los campos de la interfaz.
+     * (MODIFICADO para manejar múltiples perfiles en el ComboBox)
      */
     private void loadParameters(FileParameterExtractor.PrintInfo info) {
 
-        // Cargar peso y otros parámetros
-        String peso = info.filamentAmountG != null ? info.filamentAmountG.replace(" g", "") : "N/D";
-        String largo = info.filamentAmountM != null ? info.filamentAmountM.replace(" m", "") : "N/D";
-        String tipo = info.filamentType != null ? info.filamentType : "N/D";
+        // 1. Cargar parámetros generales (no cambian por filamento)
+        paramTiempo.setText(info.timeHuman != null ? info.timeHuman : "N/D");
+        paramAlturaCapa.setText(info.layerHeight != null ? info.layerHeight : "N/D");
 
-        String color = "N/D";
-        if (info.filamentColorName != null) {
-            if (info.filamentColorName.startsWith("#")) {
-                color = info.filamentColorName + " (" + info.filamentColor + ")";
-            } else {
-                color = info.filamentColorName;
-            }
-        } else if (info.filamentColor != null) {
-            color = info.filamentColor;
+        // 2. Limpiar y llenar el ComboBox de Filamentos
+        cmbFilamento.getItems().clear();
+
+        // Convertir el mapa de perfiles a una lista de entradas para el ComboBox
+        List<Map.Entry<Integer, FileParameterExtractor.FilamentProfile>> profiles = new ArrayList<>(info.filamentProfiles.entrySet());
+        profiles.sort(Map.Entry.comparingByKey()); // Ordenar por Tool ID (T0, T1, T2...)
+
+        cmbFilamento.setItems(FXCollections.observableArrayList(profiles));
+
+        // 3. Seleccionar el primer perfil (o el T0) y cargar sus detalles en los campos específicos
+        if (!profiles.isEmpty()) {
+            // Intentar seleccionar T0. Si no existe, seleccionar el primero.
+            Map.Entry<Integer, FileParameterExtractor.FilamentProfile> initialSelection =
+                    profiles.stream().filter(e -> e.getKey() == 0).findFirst().orElse(profiles.get(0));
+
+            cmbFilamento.getSelectionModel().select(initialSelection);
+
+            // La carga de campos específicos y el recálculo de costo se dispara por el listener del cmbFilamento.
+        } else {
+            clearFilamentParameters();
+            recalculateCost();
+        }
+    }
+
+    /**
+     * Carga los parámetros de un perfil de filamento específico en los campos de la interfaz.
+     */
+    private void loadFilamentProfile(FileParameterExtractor.FilamentProfile profile) {
+        if (profile == null) {
+            clearFilamentParameters();
+            return;
         }
 
-        String tiempo = info.timeHuman != null ? info.timeHuman : "N/D";
-        String densidad = info.filamentDensity != null ? info.filamentDensity.replace(" g/cm³", "") : "N/D";
-        String alturaCapa = info.layerHeight != null ? info.layerHeight.replace(" mm", "") : "N/D";
+        // Asignación de parámetros específicos del filamento
+        paramPeso.setText(profile.filamentAmountG != null ? profile.filamentAmountG.replace(" g", "") : "N/D");
+        paramLargo.setText(profile.filamentAmountM != null ? profile.filamentAmountM.replace(" m", "") : "N/D");
+        paramTipoFilamento.setText(profile.filamentType != null ? profile.filamentType : "N/D");
+        // Nota: paramColorFilamento ya no se usa, la info de color está en el ComboBox.
+        paramDensidad.setText(profile.filamentDensity != null ? profile.filamentDensity.replace(" g/cm³", "") : "N/D");
+        paramDiametro.setText(profile.filamentDiameter != null ? profile.filamentDiameter.replace(" mm", "") : "N/D");
 
-        // Asignación de parámetros extraídos
-        paramPeso.setText(peso);
-        paramLargo.setText(largo);
-        paramTipoFilamento.setText(tipo);
-        paramColorFilamento.setText(color);
-        paramTiempo.setText(tiempo);
-        paramDensidad.setText(densidad);
-        paramAlturaCapa.setText(alturaCapa);
-
-        // 🔑 Recalcular el costo basado en el nuevo peso cargado y el precio actual
+        // Disparar recálculo basado en el nuevo peso
         recalculateCost();
     }
+
 
     /**
      * Calcula y actualiza el costo total basado en el PESO (paramPeso)
@@ -335,16 +373,30 @@ public class CatalogManagerController {
     }
 
     /**
-     * Limpia todos los campos de parámetros.
+     * Limpia solo los campos específicos del perfil de filamento.
      */
-    private void clearParameters() {
+    private void clearFilamentParameters() {
         paramPeso.setText("");
         paramLargo.setText("");
         paramTipoFilamento.setText("");
-        paramColorFilamento.setText("");
-        paramTiempo.setText("");
+        // paramColorFilamento.setText(""); // Ya no se usa
         paramDensidad.setText("");
+        paramDiametro.setText(""); // Limpiar nuevo campo
+    }
+
+
+    /**
+     * Limpia todos los campos de parámetros.
+     */
+    private void clearParameters() {
+        clearFilamentParameters();
+
+        // Limpiar campos generales
+        paramTiempo.setText("");
         paramAlturaCapa.setText("");
+
+        // Limpiar ComboBox
+        cmbFilamento.getItems().clear();
 
         // Mantiene el valor en paramPrecioPorGramo
         paramCosto.setText("");
