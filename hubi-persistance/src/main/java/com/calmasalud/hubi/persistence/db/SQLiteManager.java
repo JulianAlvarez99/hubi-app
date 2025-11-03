@@ -22,7 +22,7 @@ public class SQLiteManager {
             // 1. Tabla para guardar los productos/piezas (entidad principal)
             String sqlProducts = "CREATE TABLE IF NOT EXISTS products ("
                     + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + "code TEXT UNIQUE NOT NULL,"
+                    + "code TEXT NOT NULL,"
                     + "name TEXT NOT NULL,"
                     + "file_extension TEXT NOT NULL"
                     + ");";

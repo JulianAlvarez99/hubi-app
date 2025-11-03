@@ -1,17 +1,19 @@
 package com.calmasalud.hubi.core.service;
 
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.calmasalud.hubi.core.model.Product;
 import com.calmasalud.hubi.core.repository.IProductRepository;
-import java.util.Comparator;
 
 public class CatalogService {
     private final IProductRepository productRepository;
-    // Commented line removed as constructor injection is used now
-    //private final IProductRepository productRepository = new ProductRepositorySQLite();
 
     // Constructor for Dependency Injection (Correct)
     public CatalogService(IProductRepository productRepository) {
@@ -25,53 +27,49 @@ public class CatalogService {
     //Color por defecto
     private static final String COLOR_POR_DEFECTO = "ROJO"; // Example, consider making configurable
 
-//    /**
-//     * Implementa la lógica de RF8 para generar códigos únicos.
-//     * FORMATO: [PROD 3 letras][COLOR 3 letras][CORRELATIVO 3 dígitos]
-//     * Modificado para usar siempre COLOR_POR_DEFECTO internamente por simplicidad
-//     * y quitar dependencia de Supply model aquí. El color real podría almacenarse
-//     * como un atributo del producto si es necesario más adelante.
-//     *
-//     * @param productName Nombre del producto/pieza.
-//     * @param isPiece     (Parámetro eliminado, ya no necesario para la lógica actual de código)
-//     * @return El código de producto generado.
-//     **/
+    /**
+     * Implementa la lógica de RF8 para generar códigos únicos. (MÉTODO PÚBLICO SIMPLE)
+     * FORMATO: [PROD 3 letras][COLOR 3 letras][CORRELATIVO 3 dígitos]
+     * @param productName Nombre del producto/pieza.
+     * @return El código de producto/pieza generado.
+     **/
+    public String generateProductCode(String productName) {
+        return generateProductCode(productName, null);
+    }
 
-    public String generateProductCode(String productName /*, String color, boolean isPiece */) {
-        // Simplificamos usando el color por defecto siempre para el código.
+    /**
+     * Implementa la lógica de RF8 para generar códigos únicos, opcionalmente forzando un correlativo.
+     * (REQ 2: Usado para forzar correlativos en piezas complementarias).
+     * @param productName Nombre del producto/pieza.
+     * @param nextCorrelative Si no es nulo, usa este correlativo (ej: "001"), si es nulo, lo pide a BD.
+     * @return El código de producto/pieza generado.
+     */
+    public String generateProductCode(String productName, String nextCorrelative) {
         String color = COLOR_POR_DEFECTO;
 
         // --- RF8: Validación de entradas mínimas ---
         if (productName == null || productName.trim().length() < 3) {
             throw new IllegalArgumentException("El nombre del producto debe tener al menos 3 caracteres.");
         }
-        // La validación del color ya no es necesaria aquí si usamos el por defecto.
-        // if (color == null || color.trim().length() < 3) {
-        //     throw new IllegalArgumentException("El color debe tener al menos 3 caracteres.");
-        // }
 
         String prefijoProd = productName.trim().substring(0, 3).toUpperCase();
-        String prefijoColor = color.trim().substring(0, 3).toUpperCase(); // Usando el color por defecto
-
+        String prefijoColor = color.trim().substring(0, 3).toUpperCase();
         String prefijoSeisLetras = prefijoProd + prefijoColor;
 
-        // RF8: Obtiene el siguiente correlativo único de la base de datos (dependencia inyectada)
-        String correlativo = productRepository.getNextCorrelative(prefijoSeisLetras); // Formato "001" esperado
+        String correlativo;
+        if (nextCorrelative != null && !nextCorrelative.isEmpty()) {
+            correlativo = nextCorrelative; // Usa el correlativo forzado (para correlación de piezas)
+        } else {
+            // Obtiene el siguiente correlativo único de la base de datos (RF8)
+            correlativo = productRepository.getNextCorrelative(prefijoSeisLetras); // Formato "001" esperado
+        }
 
-        // Retorna el código completo (Sin el indicador -0- / -1-)
-        // return String.format("%s-%d-%s", prefijoSeisLetras, isPiece ? 0 : 1, correlativo); // Formato anterior
         return String.format("%s%s", prefijoSeisLetras, correlativo); // Nuevo formato PROCOL001
     }
 
-
     /**
      * Copia un archivo origen al directorio base del repositorio.
-     * Valida la extensión del archivo.
-     * Asegura que el directorio repositorio exista.
-     *
-     * @param archivoOrigen El archivo a copiar.
-     * @return El archivo destino en el repositorio.
-     * @throws IOException Si la extensión no es válida, no se puede crear el directorio, o falla la copia.
+     * (Método original, no modificado)
      */
     public File copiarArchivoARepositorio(File archivoOrigen) throws IOException {
         if (archivoOrigen == null || !archivoOrigen.isFile()) {
@@ -97,56 +95,200 @@ public class CatalogService {
         return rutaDestinoFinal.toFile(); // Devuelve el archivo copiado en el repositorio
     }
 
+    // --- MÉTODOS AUXILIARES DE ARCHIVOS (REQ 2 & 3) ---
+
+    /* Función auxiliar para obtener la extensión de un archivo (incluyendo el punto).
+     * Devuelve "" si no hay extensión.
+     */
+    private String getFileExtension(String filename) {
+        if (filename == null) return "";
+        int dotIndex = filename.lastIndexOf('.');
+        // Asegurarse que el punto no sea el primer caracter y que exista
+        if (dotIndex == -1 || dotIndex == 0) {
+            return ""; // Sin extensión o archivo tipo ".bashrc"
+        }
+        return filename.substring(dotIndex); // Incluye el punto, ej: ".stl"
+    }
+
     /**
-     * Procesa la carga de un archivo como un NUEVO PRODUCTO.
-     * Genera código único, crea carpeta de producto, guarda en BD, y mueve el archivo.
-     * @param archivoOrigen Archivo .stl, .3mf, .gcode a cargar.
+     * Auxiliar: Busca si ya existe un archivo con el mismo nombre base y diferente extensión. (REQ 2)
+     * Retorna el CÓDIGO ÚNICO (ej: SOPROJ001) del archivo existente si se encuentra una correlación.
+     */
+    private String findExistingCorrelative(File directorioProducto, String baseName, String extension) {
+        // Obtenemos las extensiones complementarias (con el punto)
+        String lowerExt = extension.toLowerCase();
+        String complementaryExtension = null;
+        if (lowerExt.endsWith(".gcode")) {
+            complementaryExtension = ".stl";
+        } else if (lowerExt.endsWith(".3mf")) {
+            complementaryExtension = ".gcode";
+        } else if (lowerExt.endsWith(".stl")) {
+            // Buscamos el GCODE complementario si subimos STL
+            complementaryExtension = ".gcode";
+        }
+
+        if (complementaryExtension == null) return null;
+
+        File[] files = directorioProducto.listFiles();
+        if (files == null) return null;
+
+        for (File f : files) {
+            // Un archivo existente en disco está nombrado con su CÓDIGO_UNICO_PRODUCTO
+            String fileName = f.getName();
+            String fileExt = getFileExtension(fileName);
+
+            // 1. Verificar si tiene la extensión complementaria y es un archivo de pieza
+            if (f.isFile() && fileExt.equalsIgnoreCase(complementaryExtension)) {
+                String existingCode = fileName.substring(0, fileName.lastIndexOf('.'));
+
+                // 2. Usar el repositorio para obtener el nombre original guardado en la BD
+                Product existingProduct = productRepository.findByCode(existingCode);
+
+                if (existingProduct != null) {
+                    String existingOriginalName = existingProduct.getName(); // Ej: "MyPart.stl"
+                    String existingBaseName = existingOriginalName.substring(0, existingOriginalName.lastIndexOf('.')); // Ej: "MyPart"
+
+                    // 3. Comparar el nombre base original (guardado en DB) con el nombre base del nuevo archivo
+                    if (existingBaseName.equalsIgnoreCase(baseName)) {
+                        // ¡Correlación encontrada! Retornamos el código base existente (Ej: SOPROJ001)
+                        return existingCode;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Auxiliar: Comprueba si ya existe un archivo con el mismo nombre y extensión. (REQ 3)
+     * La verificación se hace buscando si existe un registro en la BD con el mismo nombre ORIGINAL.
+     */
+    private boolean isDuplicate(File directorioProducto, String nombreArchivoOriginal) {
+        File[] allPieces = directorioProducto.listFiles();
+        if (allPieces != null) {
+            for (File pieceFile : allPieces) {
+                if (!pieceFile.isFile() || pieceFile.getName().startsWith(".")) continue;
+
+                // Extraemos el código del nombre del archivo en disco
+                String code = pieceFile.getName().substring(0, pieceFile.getName().lastIndexOf('.'));
+
+                // Buscamos el producto por su código para obtener su nombre original
+                Product existingPiece = productRepository.findByCode(code);
+
+                // Comparamos el nombre original guardado en la BD con el nombre original del archivo subido
+                if (existingPiece != null && existingPiece.getName().equals(nombreArchivoOriginal)) {
+                    return true; // Duplicado encontrado
+                }
+            }
+        }
+        return false;
+    }
+
+
+    /**
+     * Procesa la carga de uno o más archivos como un NUEVO PRODUCTO. (REQ 1 - Modificado para List)
+     * @param archivosOrigen Lista de archivos .stl, .3mf, .gcode a cargar.
      * @param nombreProducto Nombre deseado para el nuevo producto (usado para la carpeta).
      * @throws IOException Si hay error de validación, creación de directorio, BD o copia/movimiento de archivo.
      */
-    public void procesarCargaProducto(File archivoOrigen, String nombreProducto) throws IOException {
-        if (archivoOrigen == null || !archivoOrigen.isFile()) {
-            throw new IOException("Error: El archivo a cargar no es válido.");
+    public void procesarCargaProducto(List<File> archivosOrigen, String nombreProducto) throws IOException {
+        if (archivosOrigen == null || archivosOrigen.isEmpty()) {
+            throw new IOException("Error: No se proporcionaron archivos para cargar.");
         }
         if (nombreProducto == null || nombreProducto.trim().isEmpty()){
             throw new IllegalArgumentException("El nombre del producto no puede estar vacío.");
         }
-        nombreProducto = nombreProducto.trim(); // Limpiar espacios
+        nombreProducto = nombreProducto.trim();
 
-        // Generar el código único (RF8)
-        String codigoUnicoProducto = generateProductCode(nombreProducto); // Usa color por defecto
-        String nombreArchivoOriginal = archivoOrigen.getName();
-        String extension = getFileExtension(nombreArchivoOriginal);
-        if (extension.isEmpty()) { // Validar que tenga extensión
-            throw new IOException("Error: El archivo original no tiene extensión.");
+        // 1. Preparar Prefijos
+        String prefijoProd = nombreProducto.trim().substring(0, 3).toUpperCase();
+        String prefijoColor = COLOR_POR_DEFECTO.trim().substring(0, 3).toUpperCase();
+        String prefijoSeisLetras = prefijoProd + prefijoColor;
+
+        // 2. Agrupación y Validación Previa (REQ de subida en lote)
+        // Agrupa archivos por su nombre base (Ej: "PiezaA")
+        Map<String, List<File>> archivosPorNombreBase = archivosOrigen.stream()
+                .filter(file -> {
+                    String name = file.getName();
+                    String ext = getFileExtension(name);
+                    // Validar que tenga extensión y sea una de las permitidas (para ser más estricto)
+                    return !ext.isEmpty() && (ext.endsWith(".stl") || ext.endsWith(".3mf") || ext.endsWith(".gcode"));
+                })
+                .collect(Collectors.groupingBy(file -> {
+                    String name = file.getName();
+                    int lastDot = name.lastIndexOf('.');
+                    return lastDot != -1 ? name.substring(0, lastDot) : name;
+                }));
+
+        if (archivosPorNombreBase.isEmpty()) {
+            throw new IOException("No se pudo cargar ningún archivo válido de la lista proporcionada.");
         }
 
-        // Crear el objeto Product (Modelo del Core)
-        Product newProduct = new Product(codigoUnicoProducto, nombreArchivoOriginal, extension);
+        // 3. Obtener el primer correlativo disponible (La BD lo incrementa/reserva aquí)
+        int currentCorrelative = Integer.parseInt(productRepository.getNextCorrelative(prefijoSeisLetras));
 
-        // Persistir en la base de datos usando el repositorio inyectado
-        long id = productRepository.save(newProduct);
-        if (id == -1) {
-            throw new IOException("Error: No se pudo guardar el producto en la base de datos.");
-        }
-
-        // Crear directorio para el producto (si no existe)
+        // 4. Crear el directorio (si no existe)
         Path directorioProducto = REPOSITORIO_BASE.resolve(nombreProducto);
         Files.createDirectories(directorioProducto);
 
-        // Definir nombre final del archivo DENTRO de la carpeta del producto
-        String nombreArchivoFinal = codigoUnicoProducto + extension;
-        Path rutaDestinoFinalEnProducto = directorioProducto.resolve(nombreArchivoFinal);
+        int loadedCount = 0;
 
-        // Copia el archivo original a la carpeta del producto con el nombre de código único
-        Files.copy(archivoOrigen.toPath(), rutaDestinoFinalEnProducto, StandardCopyOption.REPLACE_EXISTING);
+        // 5. Procesar Archivos por Grupo de Nombre Base
+        for (Map.Entry<String, List<File>> entry : archivosPorNombreBase.entrySet()) {
+            // Usa el correlativo actual para TODO el grupo
+            String correlativeStr = String.format("%03d", currentCorrelative);
+            String pieceCode = prefijoSeisLetras + correlativeStr; // Ej: PROCOL001
 
-        System.out.println("✅ Producto '" + nombreProducto + "' creado con pieza inicial: " + nombreArchivoFinal);
+            boolean groupProcessed = false;
+
+            for (File archivo : entry.getValue()) {
+                String nombreArchivoOriginal = archivo.getName();
+                String pieceExtension = getFileExtension(nombreArchivoOriginal);
+
+                // --- VALIDACIÓN DE DUPLICADO (Mismo nombre y extensión) ---
+                /*if (isDuplicate(directorioProducto.toFile(), nombreArchivoOriginal)) {
+                    throw new IOException("Duplicado: Ya existe un archivo con el mismo nombre y extensión ('" + nombreArchivoOriginal + "') en la carpeta del producto.");
+                }*/
+
+                try {
+                    // A. Guardar en BD (usando el mismo pieceCode para todos los del grupo)
+                    Product newPiece = new Product(pieceCode, nombreArchivoOriginal, pieceExtension);
+                    long pieceId = productRepository.save(newPiece);
+                    if (pieceId == -1) {
+                        throw new IOException("No se pudo guardar la pieza en la base de datos. Código: " + pieceCode);
+                    }
+
+                    // B. Copiar archivo con el nombre de código único
+                    String nombreArchivoFinalPieza = pieceCode + pieceExtension;
+                    Path rutaDestinoFinalEnProductoPieza = directorioProducto.resolve(nombreArchivoFinalPieza);
+                    Files.copy(archivo.toPath(), rutaDestinoFinalEnProductoPieza, StandardCopyOption.REPLACE_EXISTING);
+
+                    loadedCount++;
+                    groupProcessed = true;
+
+                } catch (Exception e) {
+                    // Si falla uno, asumimos que el correlativo se debe liberar/revertir si la BD lo permite.
+                    throw new IOException("Error al procesar el archivo '" + archivo.getName() + "': " + e.getMessage(), e);
+                }
+            }
+
+            // 6. Incrementar Correlativo SOLO si el grupo fue procesado
+            // Avanzamos el contador de correlativos para el SIGUIENTE grupo de archivos.
+            if (groupProcessed) {
+                currentCorrelative++;
+                // Llamamos a la BD para reservar el siguiente correlativo (Ej: de 001 pasa a 002)
+                // Si la llamada inicial ya lo hizo, esta llamada es redundante o debe ser un método de incremento explícito.
+                // Asumiendo el flujo anterior, solo llamamos si se completó la carga del grupo.
+                productRepository.getNextCorrelative(prefijoSeisLetras);
+            }
+        }
+
+        if (loadedCount == 0) {
+            throw new IOException("No se pudo cargar ningún archivo de la lista proporcionada.");
+        }
     }
-
     /**
-     * Procesa la carga de un archivo como una PIEZA asociada a un PRODUCTO existente.
-     * Genera código único, guarda en BD, y mueve el archivo a la carpeta del producto existente.
+     * Procesa la carga de un archivo como una PIEZA asociada a un PRODUCTO existente. (REQ 2 & 3)
      * @param archivoOrigen Archivo .stl, .3mf, .gcode a cargar como pieza.
      * @param rutaDirectorioProducto Ruta absoluta a la carpeta del producto existente.
      * @throws IOException Si hay error de validación, BD o copia/movimiento de archivo.
@@ -162,26 +304,57 @@ public class CatalogService {
         }
 
         Path directorioDestino = directorioProductoFile.toPath();
-        // El nombre del producto se extrae del nombre de la carpeta seleccionada
         String nombreProducto = directorioProductoFile.getName();
         String nombreArchivoOriginal = archivoOrigen.getName();
         String extension = getFileExtension(nombreArchivoOriginal);
+
         if (extension.isEmpty()) {
             throw new IOException("Error: El archivo original no tiene extensión.");
         }
 
-        // Generar el código único (RF8) para la nueva Pieza (basado en el nombre del producto padre)
-        String codigoUnicoPieza = generateProductCode(nombreProducto); // Usa color por defecto
-        String nombreArchivoFinal = codigoUnicoPieza + extension;
+        String baseNameWithoutExt = nombreArchivoOriginal.substring(0, nombreArchivoOriginal.lastIndexOf('.'));
+
+        // --- VALIDACIÓN 1: DUPLICADO POR NOMBRE Y EXTENSIÓN (REQ 3) ---
+        if (isDuplicate(directorioProductoFile, nombreArchivoOriginal)) {
+            throw new IOException("Duplicado: Ya existe un archivo con el mismo nombre y extensión ('" + nombreArchivoOriginal + "') en la carpeta del producto. Por favor, renombre el archivo para subirlo.");
+        }
+
+        // --- CORRELACIÓN: BUSCAR ARCHIVO CON EL MISMO CÓDIGO BASE Y DIFERENTE EXTENSIÓN (REQ 2) ---
+        String existingFullCode = findExistingCorrelative(directorioProductoFile, baseNameWithoutExt, extension);
+
+        String finalCode;
+        String prefijoSeisLetras;
+
+        // 1. Obtener el prefijo base (ej: SOPROJ)
+        // Se usa generateProductCode con un correlativo dummy ("001") para obtener el prefijo de 6 letras de forma consistente.
+        String tempCode = generateProductCode(nombreProducto, "001");
+        prefijoSeisLetras = tempCode.substring(0, 6);
+
+
+        if (existingFullCode != null) {
+            // REQ 2: Encontrado un archivo correlacionado, USAR SU NÚMERO CORRELATIVO.
+            // El correlativo son los últimos 3 dígitos del código completo (Ej: SOPROJ001 -> "001")
+            String correlativeToUse = existingFullCode.substring(existingFullCode.length() - 3);
+
+            // El código final es PROCOL001, reciclando el número existente.
+            finalCode = prefijoSeisLetras + correlativeToUse;
+
+        } else {
+            // No correlacionado, obtener el siguiente código único de la BD (y reservarlo).
+            // generateProductCode(nombreProducto, null) llama a getNextCorrelative, que consume el número.
+            finalCode = generateProductCode(nombreProducto, null);
+        }
+
+        // --- PROCESAMIENTO FINAL ---
+        String nombreArchivoFinal = finalCode + extension;
         Path rutaDestinoFinalEnProducto = directorioDestino.resolve(nombreArchivoFinal);
 
-        // Crear el objeto Product (representa la pieza en este contexto)
-        Product newPiece = new Product(codigoUnicoPieza, nombreArchivoOriginal, extension);
+        Product newPiece = new Product(finalCode, nombreArchivoOriginal, extension);
 
         // Persistir en la base de datos
         long id = productRepository.save(newPiece);
         if (id == -1) {
-            throw new IOException("Error: No se pudo guardar la pieza en la base de datos.");
+            throw new IOException("Error: No se pudo guardar la pieza en la base de datos (posible conflicto de código: " + finalCode + ").");
         }
 
         // Copia el archivo original a la carpeta del producto con el nombre de código único
@@ -189,18 +362,12 @@ public class CatalogService {
 
         System.out.println("✅ Pieza '" + nombreArchivoFinal + "' agregada al producto '" + nombreProducto + "'.");
     }
-
-    /* Función auxiliar para obtener la extensión de un archivo (incluyendo el punto).
-     * Devuelve "" si no hay extensión.
+    /**
+     * Procesa la carga de un archivo como un NUEVO PRODUCTO.
+     * (Mantenido para compatibilidad, redirige a la implementación de lista).
      */
-    private String getFileExtension(String filename) {
-        if (filename == null) return "";
-        int dotIndex = filename.lastIndexOf('.');
-        // Asegurarse que el punto no sea el primer caracter y que exista
-        if (dotIndex == -1 || dotIndex == 0) {
-            return ""; // Sin extensión o archivo tipo ".bashrc"
-        }
-        return filename.substring(dotIndex); // Incluye el punto, ej: ".stl"
+    public void procesarCargaProducto(File archivoOrigen, String nombreProducto) throws IOException {
+        this.procesarCargaProducto(java.util.List.of(archivoOrigen), nombreProducto);
     }
 
     /**
@@ -277,7 +444,7 @@ public class CatalogService {
      */
     public void deleteProduct(File productDirectory) throws IOException {
 
-        if (productDirectory == null || !productDirectory.isDirectory() || productDirectory.equals(REPOSITORIO_BASE)) {
+        if (productDirectory == null || !productDirectory.isDirectory() || productDirectory.equals(REPOSITORIO_BASE.toFile())) {
             throw new IOException("Error: El directorio del producto no es válido o es el repositorio base.");
         }
 
