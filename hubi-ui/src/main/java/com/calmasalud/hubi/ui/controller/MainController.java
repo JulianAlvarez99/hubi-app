@@ -60,12 +60,11 @@ public class MainController {
     }
 
     @FXML
+
     void handleMenuInventario(ActionEvent event) {
         System.out.println("Cargando vista Inventario...");
-        // loadView("/com/calmasalud/hubi/ui/view/InventarioView.fxml");
-        // (temporalmente limpiamos la vista)
-        mainContentArea.getChildren().clear();
-        mainContentArea.getChildren().add(new Label("Módulo de Inventario (En construcción)"));
+        // MODIFICADO: Cargar la vista de Inventario real
+        loadView("/com/calmasalud/hubi/ui/view/InventarioView.fxml", null);
     }
 
     @FXML
@@ -100,6 +99,8 @@ public class MainController {
             }
         });
     }
+    @FXML
+
 
     /**
      * Funcion ayudante para cargar un FXML en el área de contenido principal.

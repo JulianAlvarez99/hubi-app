@@ -2,8 +2,10 @@ package com.calmasalud.hubi.ui.controller;
 
 
 import com.calmasalud.hubi.core.model.Product;
+import com.calmasalud.hubi.core.repository.IMasterProductRepository;
 import com.calmasalud.hubi.core.repository.IProductRepository;
 import com.calmasalud.hubi.core.service.FileParameterExtractor;
+import com.calmasalud.hubi.persistence.repository.MasterProductRepositorySQLite;
 import com.calmasalud.hubi.persistence.repository.ProductRepositorySQLite;
 import com.calmasalud.hubi.core.service.CatalogService;
 import javafx.beans.property.ReadOnlyObjectWrapper;
@@ -42,7 +44,12 @@ public class CatalogManagerController {
 
     // --- Inyección de Dependencia ---
     private final IProductRepository productSqliteRepository = new ProductRepositorySQLite();
-    private final CatalogService catalogoService = new CatalogService(productSqliteRepository);
+
+    // 1. Instanciar el nuevo Repositorio Maestro
+    private final IMasterProductRepository masterProductRepository = new MasterProductRepositorySQLite(); // NUEVA INSTANCIA
+
+    // 2. Usar el constructor actualizado del servicio, pasando ambas dependencias
+    private final CatalogService catalogoService = new CatalogService(productSqliteRepository, masterProductRepository); // MODIFICADO
     private final FileParameterExtractor extractor = new FileParameterExtractor();
     // ---------------------------------
 

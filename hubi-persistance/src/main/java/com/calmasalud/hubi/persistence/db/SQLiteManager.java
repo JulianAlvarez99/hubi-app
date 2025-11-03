@@ -32,10 +32,31 @@ public class SQLiteManager {
                     + "prefix TEXT PRIMARY KEY," // Ej: SOPROJ
                     + "last_number INTEGER NOT NULL DEFAULT 0"
                     + ");";
-
+            // 3. Tabla para la Gestión de Correlativos del Producto MAESTRO
+            String sqlMasterCorrelatives = "CREATE TABLE IF NOT EXISTS master_correlatives ("
+                    + "master_prefix TEXT PRIMARY KEY," // Ej: SOP (las 3 primeras letras del producto)
+                    + "last_number INTEGER NOT NULL DEFAULT 0"
+                    + ");";
+            // 4.Tabla para definir el Producto Maestro (RF4 - Parte Lógica)
+            // La clave es el prefijo + correlativo (Ej: SOP01)
+            String sqlMasterProducts = "CREATE TABLE IF NOT EXISTS master_products ("
+                    + "master_code TEXT PRIMARY KEY,"
+                    + "product_prefix TEXT NOT NULL," // El prefijo de 3 letras (Ej: SOP)
+                    + "product_name TEXT NOT NULL UNIQUE," // Nombre completo para mostrar
+                    + "description TEXT"
+                    + ");";
+            // 5.Tabla para el Stock de Productos Finalizados (RF4 - Parte Cuantitativa)
+            String sqlFinishedStock = "CREATE TABLE IF NOT EXISTS finished_products_stock ("
+                    + "master_code TEXT PRIMARY KEY,"
+                    + "quantity_available INTEGER NOT NULL DEFAULT 0,"
+                    + "price REAL NOT NULL DEFAULT 0.0,"
+                    + "FOREIGN KEY (master_code) REFERENCES master_products(master_code)"
+                    + ");";
             stmt.execute(sqlProducts);
             stmt.execute(sqlCorrelatives);
-
+            stmt.execute(sqlMasterCorrelatives);
+            stmt.execute(sqlMasterProducts);
+            stmt.execute(sqlFinishedStock);
             System.out.println("✅ Base de datos y tablas inicializadas correctamente.");
 
         } catch (SQLException e) {

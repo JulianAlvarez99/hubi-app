@@ -8,6 +8,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+
 //Gestiona las transacciones y guarda el objeto Product.
 public class ProductRepositorySQLite implements IProductRepository {
 
@@ -125,5 +128,32 @@ public class ProductRepositorySQLite implements IProductRepository {
             System.err.println("Error al eliminar producto/pieza por código: " + e.getMessage());
         }
     }
+    @Override
+    public List<Product> findPiecesByMasterPrefix(String masterPrefix) {
+        List<Product> pieces = new ArrayList<>();
 
+        // La consulta usa LIKE 'prefijo%', que es la lógica para asociar todas las piezas (archivos)
+        // a un producto maestro (Ej: todos los que empiezan con LLA)
+        String sql = "SELECT code, name, file_extension FROM products WHERE code LIKE ? || '%'";
+
+        try (Connection conn = SQLiteManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            // El código de pieza es de 9 caracteres (LLAWHI001), por lo que buscar por LLA%
+            // encuentra todas las piezas de ese producto.
+            pstmt.setString(1, masterPrefix.toUpperCase());
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                pieces.add(new Product(
+                        rs.getString("code"),
+                        rs.getString("name"),
+                        rs.getString("file_extension")
+                ));
+            }
+        } catch (SQLException e) {
+            System.err.println("❌ Error al listar piezas por prefijo: " + e.getMessage());
+        }
+        return pieces;
+    }
 }
