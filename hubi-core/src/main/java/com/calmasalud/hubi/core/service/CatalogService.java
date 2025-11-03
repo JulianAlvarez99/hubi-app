@@ -9,15 +9,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.calmasalud.hubi.core.model.MasterProduct;
 import com.calmasalud.hubi.core.model.Product;
+import com.calmasalud.hubi.core.repository.IMasterProductRepository;
 import com.calmasalud.hubi.core.repository.IProductRepository;
 
 public class CatalogService {
     private final IProductRepository productRepository;
-
+    private final IMasterProductRepository masterProductRepository;
     // Constructor for Dependency Injection (Correct)
-    public CatalogService(IProductRepository productRepository) {
+    public CatalogService(IProductRepository productRepository, IMasterProductRepository masterProductRepository) {
         this.productRepository = productRepository;
+        this.masterProductRepository = masterProductRepository;
     }
 
     // Se define la ubicación base de forma portable
@@ -199,7 +202,7 @@ public class CatalogService {
             throw new IllegalArgumentException("El nombre del producto no puede estar vacío.");
         }
         nombreProducto = nombreProducto.trim();
-
+        /*Cambio Cami, comento por si lo necesitamos después
         // 1. Preparar Prefijos
         String prefijoProd = nombreProducto.trim().substring(0, 3).toUpperCase();
         String prefijoColor = COLOR_POR_DEFECTO.trim().substring(0, 3).toUpperCase();
@@ -230,25 +233,65 @@ public class CatalogService {
         // 4. Crear el directorio (si no existe)
         Path directorioProducto = REPOSITORIO_BASE.resolve(nombreProducto);
         Files.createDirectories(directorioProducto);
+        */
+        // 1. --- REGISTRO DEL PRODUCTO MAESTRO (RF4, RF8) ---
 
+        // 1.1. Obtener Prefijo y Código Maestro Único (Ej: SOP01)
+        String productPrefix = masterProductRepository.getPrefixFromName(nombreProducto);
+        // Genera el código (Ej: SOP01) y reserva el correlativo en master_correlatives.
+        String masterCode = masterProductRepository.getNextMasterCode(productPrefix);
+
+        // 1.2. Guardar el Producto Maestro y el Stock Inicial (RF6)
+        MasterProduct newMasterProduct = new MasterProduct(
+                masterCode,
+                productPrefix,
+                nombreProducto,
+                "Producto inicial generado al cargar piezas."
+        );
+        // Guardamos el producto maestro y su stock inicial (Qty: 0)
+        masterProductRepository.saveNewProduct(newMasterProduct, 0.0);
+
+        System.out.println("✅ Producto Maestro Registrado: " + masterCode);
+
+        // 2. Preparar Prefijos y Agrupación (Continúa lógica de piezas)
+        String prefijoProd = productPrefix; // Usamos el prefijo de 3 letras (SOP)
+        String prefijoColor = COLOR_POR_DEFECTO.trim().substring(0, 3).toUpperCase();
+        String prefijoSeisLetras = prefijoProd + prefijoColor; // Ej: SOPROJ
+
+        // ... (Resto de la lógica original para procesar piezas) ...
+        // 3. Obtener el primer correlativo disponible para PIEZAS (La BD lo incrementa/reserva aquí)
+        int currentCorrelative = Integer.parseInt(productRepository.getNextCorrelative(prefijoSeisLetras));
+
+        // 4. Crear el directorio (si no existe) con el nombre dado por el usuario
+        Path directorioProducto = REPOSITORIO_BASE.resolve(nombreProducto);
+        Files.createDirectories(directorioProducto);
+        // 5. Lógica para procesar y guardar las piezas individuales
+        Map<String, List<File>> archivosPorNombreBase = archivosOrigen.stream()
+                .filter(file -> {
+                    String name = file.getName();
+                    String ext = getFileExtension(name);
+                    return !ext.isEmpty() && (ext.endsWith(".stl") || ext.endsWith(".3mf") || ext.endsWith(".gcode"));
+                })
+                .collect(Collectors.groupingBy(file -> {
+                    String name = file.getName();
+                    int lastDot = name.lastIndexOf('.');
+                    return lastDot != -1 ? name.substring(0, lastDot) : name;
+                }));
+
+        if (archivosPorNombreBase.isEmpty()) {
+            throw new IOException("No se pudo cargar ningún archivo válido de la lista proporcionada.");
+        }
         int loadedCount = 0;
 
-        // 5. Procesar Archivos por Grupo de Nombre Base
         for (Map.Entry<String, List<File>> entry : archivosPorNombreBase.entrySet()) {
-            // Usa el correlativo actual para TODO el grupo
             String correlativeStr = String.format("%03d", currentCorrelative);
-            String pieceCode = prefijoSeisLetras + correlativeStr; // Ej: PROCOL001
+            String pieceCode = prefijoSeisLetras + correlativeStr; // Ej: SOPROJ001
 
             boolean groupProcessed = false;
 
             for (File archivo : entry.getValue()) {
                 String nombreArchivoOriginal = archivo.getName();
                 String pieceExtension = getFileExtension(nombreArchivoOriginal);
-
-                // --- VALIDACIÓN DE DUPLICADO (Mismo nombre y extensión) ---
-                /*if (isDuplicate(directorioProducto.toFile(), nombreArchivoOriginal)) {
-                    throw new IOException("Duplicado: Ya existe un archivo con el mismo nombre y extensión ('" + nombreArchivoOriginal + "') en la carpeta del producto.");
-                }*/
 
                 try {
                     // A. Guardar en BD (usando el mismo pieceCode para todos los del grupo)
@@ -267,18 +310,13 @@ public class CatalogService {
                     groupProcessed = true;
 
                 } catch (Exception e) {
-                    // Si falla uno, asumimos que el correlativo se debe liberar/revertir si la BD lo permite.
                     throw new IOException("Error al procesar el archivo '" + archivo.getName() + "': " + e.getMessage(), e);
                 }
             }
 
             // 6. Incrementar Correlativo SOLO si el grupo fue procesado
-            // Avanzamos el contador de correlativos para el SIGUIENTE grupo de archivos.
             if (groupProcessed) {
                 currentCorrelative++;
-                // Llamamos a la BD para reservar el siguiente correlativo (Ej: de 001 pasa a 002)
-                // Si la llamada inicial ya lo hizo, esta llamada es redundante o debe ser un método de incremento explícito.
-                // Asumiendo el flujo anterior, solo llamamos si se completó la carga del grupo.
                 productRepository.getNextCorrelative(prefijoSeisLetras);
             }
         }
