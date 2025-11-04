@@ -1,8 +1,10 @@
 package com.calmasalud.hubi.ui.controller;
 
 import com.calmasalud.hubi.core.repository.IMasterProductRepository;
+import com.calmasalud.hubi.core.repository.IProductCompositionRepository;
 import com.calmasalud.hubi.core.repository.IProductRepository;
 import com.calmasalud.hubi.persistence.repository.MasterProductRepositorySQLite;
+import com.calmasalud.hubi.persistence.repository.ProductCompositionRepositorySQLite;
 import com.calmasalud.hubi.persistence.repository.ProductRepositorySQLite;
 import com.calmasalud.hubi.core.service.CatalogService;
 import javafx.collections.FXCollections;
@@ -40,14 +42,19 @@ import java.util.stream.Collectors;
 
 public class TipoCargaController {
 
-    // --- Inyección de Dependencia ---
+    // --- Inyección de Dependencia (ACTUALIZADA) ---
     private final IProductRepository productSqliteRepository = new ProductRepositorySQLite();
-
-    // 1. Instanciar el nuevo Repositorio Maestro
     private final IMasterProductRepository masterProductRepository = new MasterProductRepositorySQLite();
 
-    // 2. Usar el constructor actualizado del servicio
-    private final CatalogService catalogoService = new CatalogService(productSqliteRepository, masterProductRepository);
+
+    private final IProductCompositionRepository productCompositionRepository = new ProductCompositionRepositorySQLite();
+
+
+    private final CatalogService catalogoService = new CatalogService(
+            productSqliteRepository,
+            masterProductRepository,
+            productCompositionRepository // TERCER ARGUMENTO AÑADIDO
+    );
     // ---------------------------------
 
     private List<File> archivosSeleccionados = new ArrayList<>();

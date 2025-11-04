@@ -41,8 +41,8 @@ public class SQLiteManager {
             // La clave es el prefijo + correlativo (Ej: SOP01)
             String sqlMasterProducts = "CREATE TABLE IF NOT EXISTS master_products ("
                     + "master_code TEXT PRIMARY KEY,"
-                    + "product_prefix TEXT NOT NULL," // El prefijo de 3 letras (Ej: SOP)
-                    + "product_name TEXT NOT NULL UNIQUE," // Nombre completo para mostrar
+                    + "product_prefix TEXT NOT NULL,"
+                    + "product_name TEXT NOT NULL," // <--- ¡Asegúrate de que NO dice UNIQUE aquí!
                     + "description TEXT"
                     + ");";
             // 5.Tabla para el Stock de Productos Finalizados (RF4 - Parte Cuantitativa)
@@ -52,11 +52,27 @@ public class SQLiteManager {
                     + "price REAL NOT NULL DEFAULT 0.0,"
                     + "FOREIGN KEY (master_code) REFERENCES master_products(master_code)"
                     + ");";
+            // 6. Tabla para la Composición del Producto (BOM)
+            String sqlComposition = "CREATE TABLE IF NOT EXISTS product_composition ("
+                    + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + "master_code TEXT NOT NULL," // FK a master_products (Ej: SOP01)
+                    + "piece_name_base TEXT NOT NULL," // Nombre base de la pieza (Ej: Llave_base)
+                    + "required_quantity INTEGER NOT NULL DEFAULT 1," // Cantidad de esta pieza necesaria para 1 Producto Final
+                    + "UNIQUE (master_code, piece_name_base),"
+                    + "FOREIGN KEY (master_code) REFERENCES master_products(master_code) ON DELETE CASCADE"
+                    + ");";
+            // 7. Tabla para el Stock Real de Piezas Producidas (Stock para Ensamble)
+            String sqlPieceStock = "CREATE TABLE IF NOT EXISTS piece_stock ("
+                    + "piece_name_base TEXT PRIMARY KEY," // Nombre base de la pieza (Ej: Llave_base)
+                    + "available_quantity INTEGER NOT NULL DEFAULT 0" // El stock real de piezas
+                    + ");";
             stmt.execute(sqlProducts);
             stmt.execute(sqlCorrelatives);
             stmt.execute(sqlMasterCorrelatives);
             stmt.execute(sqlMasterProducts);
             stmt.execute(sqlFinishedStock);
+            stmt.execute(sqlComposition);
+            stmt.execute(sqlPieceStock);
             System.out.println("✅ Base de datos y tablas inicializadas correctamente.");
 
         } catch (SQLException e) {

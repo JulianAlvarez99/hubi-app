@@ -120,10 +120,11 @@
                         <TextField fx:id="paramLargo" editable="false" promptText="0.0" GridPane.columnIndex="1" GridPane.rowIndex="4" />
                         <Label text="m" GridPane.columnIndex="2" GridPane.rowIndex="4" />
 
+                        <Label styleClass="parameter-label" text="TIEMPO DE IMPRESIÓN:" GridPane.columnIndex="0" GridPane.rowIndex="5" />
+                        <TextField fx:id="paramTiempo" editable="false" promptText="0h 0m" GridPane.columnIndex="1" GridPane.rowIndex="5" />
+                        <Label text="h:m" GridPane.columnIndex="2" GridPane.rowIndex="5" />
 
-                        <Label styleClass="parameter-label" text="DENSIDAD FILAMENTO:" GridPane.columnIndex="0" GridPane.rowIndex="5" />
-                        <TextField fx:id="paramDensidadF" editable="false" promptText="0.0" GridPane.columnIndex="1" GridPane.rowIndex="5" />
-                        <Label text="g/cm³" GridPane.columnIndex="2" GridPane.rowIndex="5" />
+
 
                         <Label styleClass="parameter-label" text="ALTURA DE CAPA:" GridPane.columnIndex="0" GridPane.rowIndex="6" />
                         <TextField fx:id="paramAlturaCapa" editable="false" promptText="0.0" GridPane.columnIndex="1" GridPane.rowIndex="6" />

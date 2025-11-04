@@ -197,4 +197,117 @@ public class MasterProductRepositorySQLite implements IMasterProductRepository {
         // Devolvemos la lista, que en realidad contiene objetos MasterProductView, que es válido ya que es un subtipo.
         return products;
     }
+    @Override
+    public void deleteProduct(String masterCode) {
+        Connection conn = null;
+        String sqlDeleteStock = "DELETE FROM finished_products_stock WHERE master_code = ?";
+        String sqlDeleteMaster = "DELETE FROM master_products WHERE master_code = ?";
+
+        try {
+            conn = SQLiteManager.getConnection();
+            conn.setAutoCommit(false); // Iniciar transacción (RF6)
+
+            // 1. Eliminar el registro de Stock
+            try (PreparedStatement pstmtStock = conn.prepareStatement(sqlDeleteStock)) {
+                pstmtStock.setString(1, masterCode);
+                pstmtStock.executeUpdate();
+            }
+
+            // 2. Eliminar el registro Maestro
+            try (PreparedStatement pstmtMaster = conn.prepareStatement(sqlDeleteMaster)) {
+                pstmtMaster.setString(1, masterCode);
+                pstmtMaster.executeUpdate();
+            }
+
+            conn.commit(); // Confirmar transacción
+
+        } catch (SQLException e) {
+            System.err.println("❌ Error al eliminar el Producto Maestro/Stock: " + e.getMessage());
+            if (conn != null) {
+                try { conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); } // Revertir
+            }
+            throw new RuntimeException("Fallo al eliminar el Producto Maestro.", e);
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException e) { e.printStackTrace(); }
+            }
+        }
+    }
+    @Override
+    public MasterProduct findByProductName(String productName) {
+        String sql = "SELECT master_code, product_prefix, product_name, description FROM master_products WHERE product_name = ?";
+        MasterProduct product = null;
+
+        try (java.sql.Connection conn = com.calmasalud.hubi.persistence.db.SQLiteManager.getConnection();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, productName.trim());
+            java.sql.ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                // Creamos e inicializamos el objeto MasterProduct
+                product = new com.calmasalud.hubi.core.model.MasterProduct(
+                        rs.getString("master_code"),
+                        rs.getString("product_prefix"),
+                        rs.getString("product_name"),
+                        rs.getString("description")
+                );
+            }
+        } catch (java.sql.SQLException e) {
+            System.err.println("❌ Error al buscar producto maestro por nombre: " + e.getMessage());
+        }
+        return product;
+    }
+    @Override
+    public MasterProduct findByProductPrefix(String prefix) {
+        String sql = "SELECT master_code, product_prefix, product_name, description FROM master_products WHERE product_prefix = ?";
+        MasterProduct product = null;
+
+        try (Connection conn = SQLiteManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            // Asumimos que el prefijo es pasado como un código de 3 letras (Ej: LLA)
+            pstmt.setString(1, prefix.toUpperCase(Locale.ROOT));
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                product = new MasterProduct(
+                        rs.getString("master_code"),
+                        rs.getString("product_prefix"),
+                        rs.getString("product_name"),
+                        rs.getString("description")
+                );
+            }
+        } catch (SQLException e) {
+            System.err.println("❌ Error al buscar producto maestro por prefijo: " + e.getMessage());
+        }
+        return product;
+    }
+    @Override
+    public void decreaseStock(String masterCode, int quantity) throws RuntimeException {
+        // Solo ejecuta la actualización si la cantidad_disponible actual es >= a la cantidad a restar.
+        String sql = "UPDATE finished_products_stock SET quantity_available = quantity_available - ? WHERE master_code = ? AND quantity_available >= ?";
+
+        try (java.sql.Connection conn = com.calmasalud.hubi.persistence.db.SQLiteManager.getConnection();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, quantity);
+            pstmt.setString(2, masterCode);
+            pstmt.setInt(3, quantity); // Usamos la cantidad para verificar la condición
+
+            int rows = pstmt.executeUpdate();
+
+            if (rows == 0) {
+                // Si ninguna fila fue actualizada, el stock era insuficiente (stock < quantity)
+                throw new RuntimeException("Stock insuficiente o producto no encontrado para la eliminación de unidades.");
+            }
+
+        } catch (java.sql.SQLException e) {
+            System.err.println("❌ Error al disminuir stock: " + e.getMessage());
+            throw new RuntimeException("Fallo en la persistencia al disminuir stock.", e);
+        }
+    }
 }
