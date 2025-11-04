@@ -40,4 +40,8 @@ public interface IMasterProductRepository {
     MasterProduct findByMasterCode(String masterCode);
 
     List<MasterProduct> findAll();
+    MasterProduct findByProductName(String productName);
+    void deleteProduct(String masterCode);
+    MasterProduct findByProductPrefix(String prefix);
+    public void decreaseStock(String masterCode, int quantity);
 }

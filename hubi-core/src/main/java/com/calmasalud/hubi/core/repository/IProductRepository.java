@@ -25,4 +25,6 @@ public interface IProductRepository {
      * por su prefijo de 3 letras (Ej: 'LLA').
      */
     List<Product> findPiecesByMasterPrefix(String masterPrefix); // <-- ¡ESTO ES LO QUE DEBES AÑADIR!
+    int getPieceStockQuantity(String pieceNameBase);
+    void increasePieceStockQuantity(String pieceNameBase, int quantity);
 }

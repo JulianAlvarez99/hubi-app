@@ -156,4 +156,44 @@ public class ProductRepositorySQLite implements IProductRepository {
         }
         return pieces;
     }
+    @Override
+    public int getPieceStockQuantity(String pieceNameBase) {
+        String sql = "SELECT available_quantity FROM piece_stock WHERE piece_name_base = ?";
+
+        try (Connection conn = SQLiteManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, pieceNameBase.trim());
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getInt("available_quantity");
+            }
+        } catch (SQLException e) {
+            System.err.println("❌ Error al obtener stock de pieza: " + e.getMessage());
+        }
+        return 0; // Si no existe el registro, el stock es 0.
+    }
+    @Override
+    public void increasePieceStockQuantity(String pieceNameBase, int quantity) {
+        // Inserta una nueva fila o actualiza la cantidad si el piece_name_base ya existe.
+        String sqlUpsert = "INSERT INTO piece_stock (piece_name_base, available_quantity) " +
+                "VALUES (?, ?) " +
+                "ON CONFLICT(piece_name_base) DO UPDATE SET available_quantity = available_quantity + excluded.available_quantity";
+
+        // Nota: excluded.available_quantity es la cantidad del nuevo registro (el 'quantity' que se intenta insertar).
+
+        try (java.sql.Connection conn = com.calmasalud.hubi.persistence.db.SQLiteManager.getConnection();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sqlUpsert)) {
+
+            pstmt.setString(1, pieceNameBase);
+            pstmt.setInt(2, quantity);
+
+            pstmt.executeUpdate();
+
+        } catch (java.sql.SQLException e) {
+            System.err.println("❌ Error al incrementar stock de pieza: " + e.getMessage());
+            throw new RuntimeException("Fallo al actualizar el stock de la pieza.", e);
+        }
+    }
 }

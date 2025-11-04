@@ -11,16 +11,20 @@ import java.util.stream.Collectors;
 
 import com.calmasalud.hubi.core.model.MasterProduct;
 import com.calmasalud.hubi.core.model.Product;
+import com.calmasalud.hubi.core.model.ProductComposition;
 import com.calmasalud.hubi.core.repository.IMasterProductRepository;
+import com.calmasalud.hubi.core.repository.IProductCompositionRepository;
 import com.calmasalud.hubi.core.repository.IProductRepository;
 
 public class CatalogService {
     private final IProductRepository productRepository;
     private final IMasterProductRepository masterProductRepository;
+    private final IProductCompositionRepository productCompositionRepository;
     // Constructor for Dependency Injection (Correct)
-    public CatalogService(IProductRepository productRepository, IMasterProductRepository masterProductRepository) {
+    public CatalogService(IProductRepository productRepository, IMasterProductRepository masterProductRepository,IProductCompositionRepository productCompositionRepository) {
         this.productRepository = productRepository;
         this.masterProductRepository = masterProductRepository;
+        this.productCompositionRepository = productCompositionRepository;
     }
 
     // Se define la ubicación base de forma portable
@@ -202,38 +206,7 @@ public class CatalogService {
             throw new IllegalArgumentException("El nombre del producto no puede estar vacío.");
         }
         nombreProducto = nombreProducto.trim();
-        /*Cambio Cami, comento por si lo necesitamos después
-        // 1. Preparar Prefijos
-        String prefijoProd = nombreProducto.trim().substring(0, 3).toUpperCase();
-        String prefijoColor = COLOR_POR_DEFECTO.trim().substring(0, 3).toUpperCase();
-        String prefijoSeisLetras = prefijoProd + prefijoColor;
 
-        // 2. Agrupación y Validación Previa (REQ de subida en lote)
-        // Agrupa archivos por su nombre base (Ej: "PiezaA")
-        Map<String, List<File>> archivosPorNombreBase = archivosOrigen.stream()
-                .filter(file -> {
-                    String name = file.getName();
-                    String ext = getFileExtension(name);
-                    // Validar que tenga extensión y sea una de las permitidas (para ser más estricto)
-                    return !ext.isEmpty() && (ext.endsWith(".stl") || ext.endsWith(".3mf") || ext.endsWith(".gcode"));
-                })
-                .collect(Collectors.groupingBy(file -> {
-                    String name = file.getName();
-                    int lastDot = name.lastIndexOf('.');
-                    return lastDot != -1 ? name.substring(0, lastDot) : name;
-                }));
-
-        if (archivosPorNombreBase.isEmpty()) {
-            throw new IOException("No se pudo cargar ningún archivo válido de la lista proporcionada.");
-        }
-
-        // 3. Obtener el primer correlativo disponible (La BD lo incrementa/reserva aquí)
-        int currentCorrelative = Integer.parseInt(productRepository.getNextCorrelative(prefijoSeisLetras));
-
-        // 4. Crear el directorio (si no existe)
-        Path directorioProducto = REPOSITORIO_BASE.resolve(nombreProducto);
-        Files.createDirectories(directorioProducto);
-        */
         // 1. --- REGISTRO DEL PRODUCTO MAESTRO (RF4, RF8) ---
 
         // 1.1. Obtener Prefijo y Código Maestro Único (Ej: SOP01)
@@ -421,6 +394,23 @@ public class CatalogService {
     }
 
     /**
+     * @return El código maestro (Ej: LLA01) asociado al nombre de la carpeta de producto.
+     * CORREGIDO: Manejo seguro de NullPointerException.
+     */
+    public String getMasterCodeByProductName(String productName) {
+        // NOTA: Asumimos que findByProductName está disponible en IMasterProductRepository.
+        MasterProduct masterProduct = masterProductRepository.findByProductName(productName);
+
+        if (masterProduct == null) {
+            // Si el repositorio devuelve null (producto no encontrado), retornamos null.
+            return null;
+        }
+
+        // Si el producto existe, retornamos su código maestro.
+        return masterProduct.getMasterCode();
+    }
+
+    /**
      * Elimina una pieza específica.
      * Borra el registro de la BD y el archivo físico.
      * Si la carpeta del producto queda vacía después de eliminar la pieza, también elimina la carpeta.
@@ -475,8 +465,7 @@ public class CatalogService {
     }
 
     /**
-     * Elimina un Producto completo (su carpeta y todas las piezas dentro).
-     * Recorre los archivos, elimina los registros de la BD y luego borra la carpeta recursivamente.
+     * Elimina un Producto completo (su carpeta y todas las piezas dentro) Y el registro maestro.
      * @param productDirectory Directorio del producto a eliminar.
      * @throws IOException Si el directorio no es válido o falla la eliminación.
      */
@@ -486,9 +475,11 @@ public class CatalogService {
             throw new IOException("Error: El directorio del producto no es válido o es el repositorio base.");
         }
 
+        String productName = productDirectory.getName();
+        String masterCode = getMasterCodeByProductName(productName);
         Path productPath = productDirectory.toPath();
 
-        // 1. Eliminar registros de la BD para cada archivo dentro del directorio
+        // 1. Eliminar registros de la BD para cada archivo dentro del directorio (Piezas)
         Files.walk(productPath)
                 .filter(Files::isRegularFile) // Solo archivos
                 .forEach(path -> {
@@ -501,28 +492,109 @@ public class CatalogService {
                         try {
                             productRepository.deleteByCode(code);
                         } catch (Exception e) {
-                            // Loggear error de BD pero continuar con borrado físico
                             System.err.println("⚠️ Error al eliminar registro BD para pieza '" + code + "': " + e.getMessage());
                         }
                     } else {
-                        // Archivo sin extensión o inválido, no intentar borrar de BD
                         System.out.println("ℹ️ Archivo ignorado para borrado de BD (formato inválido): " + fileName);
                     }
                 });
 
-        // 2. Eliminar el Directorio Físico y  su contenido (recursivamente)
-        // Usar Comparator.reverseOrder() asegura que los archivos se borren antes que los directorios
+        // 2. Eliminar el Directorio Físico y su contenido (recursivamente)
         Files.walk(productPath)
                 .sorted(Comparator.reverseOrder())
                 .map(Path::toFile)
-                .forEach(File::delete); // Intenta borrar cada archivo/directorio
+                .forEach(File::delete);
+
+        // 3. Eliminar el registro de Producto Maestro y su Stock (RF4)
+        if (masterCode != null) {
+            // ESTO RESUELVE EL ERROR DE COMPILACIÓN EN LA LÍNEA 507
+            masterProductRepository.deleteProduct(masterCode);
+            System.out.println("✅ Registro Maestro y Stock eliminados para: " + masterCode);
+        }
 
         // Verificar si realmente se borró (puede fallar por permisos, etc.)
         if (Files.exists(productPath)) {
-            // Podría lanzar una excepción aquí si el borrado es crítico
             System.err.println("⚠️ Advertencia: No se pudo eliminar completamente la carpeta del producto: " + productDirectory.getName());
         } else {
             System.out.println("✅ Producto (carpeta y piezas) eliminado: " + productDirectory.getName());
         }
+    }
+    public void verifyPieceAvailability(String masterCode, int quantity) throws IOException {
+        // 1. Obtener la composición (BOM) requerida para 1 unidad
+        List<ProductComposition> composition = productCompositionRepository.getComposition(masterCode);
+        if (composition.isEmpty()) {
+            // Si no hay composición, significa que no se definió la BOM.
+            throw new IOException("Error de composición: La receta del producto (BOM) no ha sido definida.");
+        }
+
+        // 2. Obtener todas las PIEZAS CARGADAS (archivos) para este producto
+        String productPrefix = masterCode.substring(0, 3); // Ej: LLA de LLA01
+        List<Product> availablePieces = productRepository.findPiecesByMasterPrefix(productPrefix);
+
+        // Contar la disponibilidad real por nombre base de pieza
+        Map<String, Long> availableCount = availablePieces.stream()
+                .map(p -> p.getName().substring(0, p.getName().lastIndexOf('.'))) // Obtener Nombre Base (Ej: Llave_base)
+                .collect(Collectors.groupingBy(name -> name, Collectors.counting()));
+
+        for (ProductComposition requiredPiece : composition) {
+            String pieceNameBase = requiredPiece.getPieceNameBase();
+            int totalRequired = requiredPiece.getRequiredQuantity() * quantity;
+
+            // CORRECCIÓN CLAVE: LEER DE LA NUEVA TABLA piece_stock
+            long currentAvailable = productRepository.getPieceStockQuantity(pieceNameBase);
+
+            if (currentAvailable < totalRequired) {
+                throw new IOException(
+                        String.format(
+                                "Faltan piezas para producir %d unidades de %s. Pieza requerida: '%s'. Disponibles: %d. Necesarias: %d.",
+                                quantity, masterCode, pieceNameBase, currentAvailable, totalRequired
+                        )
+                );
+            }
+        }
+
+    }
+    public MasterProduct findByProductPrefix(String prefix) {
+        // Asumimos que la implementación del repositorio existe y se llama aquí:
+        // return masterProductRepository.findByProductPrefix(prefix);
+
+        // STUB TEMPORAL: Para que el código compile ahora, si el método no está en la interfaz.
+        // Si el método no existe, esto causará un error. Asumiendo que SÍ existe:
+        return masterProductRepository.findByProductPrefix(prefix);
+    }
+
+    /**
+     * Elimina una pieza específica (archivo y registro BD) dado solo el código.
+     * @param code El código único de la pieza (Ej: LLAROJ007).
+     * @throws IOException Si el archivo no se puede encontrar o eliminar.
+     */
+    public void deletePieceByCode(String code) throws IOException {
+        Product piece = productRepository.findByCode(code); // Obtener detalles de la pieza (code, name, ext)
+
+        if (piece == null) {
+            throw new IOException("Error: La pieza con código " + code + " no fue encontrada en la base de datos.");
+        }
+
+        // 1. Obtener los detalles necesarios para la ruta
+        String pieceFileName = piece.getCode() + piece.getFileExtension(); // Ej: LLAROJ007.gcode
+        String productPrefix = piece.getCode().substring(0, 3); // Ej: LLA
+
+        // 2. Buscar el nombre de la carpeta (Ej: Llavero) usando el MasterProduct
+        MasterProduct masterProduct = findByProductPrefix(productPrefix);
+        // Usamos el nombre del MasterProduct como el nombre de la carpeta física
+        String productName = masterProduct != null ? masterProduct.getProductName() : "UnknownProduct";
+
+        // 3. Reconstruir la ruta física del archivo
+        File productDirectory = REPOSITORIO_BASE.resolve(productName).toFile();
+        File pieceFile = new File(productDirectory, pieceFileName);
+
+        if (!pieceFile.exists()) {
+            // Si el archivo físico no se encuentra (Ej: eliminado manualmente), borramos solo el registro de BD.
+            productRepository.deleteByCode(code);
+            throw new IOException("Advertencia: El archivo físico de la pieza '" + code + "' no existe. Solo se eliminó el registro de la BD.");
+        }
+
+        // 4. Llamar a la lógica de eliminación ya existente (que maneja BD, Archivo, y Carpeta Vacía)
+        deletePiece(pieceFile);
     }
 }
