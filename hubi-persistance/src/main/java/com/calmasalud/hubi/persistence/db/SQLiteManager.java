@@ -61,10 +61,13 @@ public class SQLiteManager {
                     + "UNIQUE (master_code, piece_name_base),"
                     + "FOREIGN KEY (master_code) REFERENCES master_products(master_code) ON DELETE CASCADE"
                     + ");";
-            // 7. Tabla para el Stock Real de Piezas Producidas (Stock para Ensamble)
+
+            // 7: Tabla para el Stock Real de Piezas Producidas (Stock para Ensamble)
             String sqlPieceStock = "CREATE TABLE IF NOT EXISTS piece_stock ("
-                    + "piece_name_base TEXT PRIMARY KEY," // Nombre base de la pieza (Ej: Llave_base)
-                    + "available_quantity INTEGER NOT NULL DEFAULT 0" // El stock real de piezas
+                    + "piece_name_base TEXT NOT NULL,"
+                    + "color_name TEXT NOT NULL," // NUEVO: Color usado (Ej: ROJO PLA)
+                    + "available_quantity INTEGER NOT NULL DEFAULT 0,"
+                    + "PRIMARY KEY (piece_name_base, color_name)" // CLAVE COMPUESTA
                     + ");";
             stmt.execute(sqlProducts);
             stmt.execute(sqlCorrelatives);

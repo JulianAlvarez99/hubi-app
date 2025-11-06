@@ -2,6 +2,7 @@ package com.calmasalud.hubi.ui.controller;
 
 import com.calmasalud.hubi.core.model.MasterProduct;
 import com.calmasalud.hubi.core.model.MasterProductView; // Necesario para acceder a stock/precio
+import com.calmasalud.hubi.core.model.PieceStockColorView;
 import com.calmasalud.hubi.core.model.Product;           // Necesario para las piezas
 import com.calmasalud.hubi.core.repository.IMasterProductRepository;
 import com.calmasalud.hubi.core.repository.IProductCompositionRepository;
@@ -57,17 +58,21 @@ public class InventarioController {
     public void initialize() {
         System.out.println("Controlador de Inventario inicializado.");
 
-        // 1. Configuración de columnas (Usa getValue().getValue() para acceder al objeto)
+        // 1. Configuración de columnas
         colProductoNombre.setCellValueFactory(cellData -> {
             MasterProduct item = cellData.getValue().getValue();
             if (item == null) return null;
 
-            // Comprobar si el nodo es una Pieza (longitud > 5, Ej: SOPROJ001)
+            // Comprobar si el nodo es una Pieza (usamos la lógica de longitud del código)
+            // La Pieza (Hijo) tiene un código de 9 dígitos (LLAROJ001), el Padre tiene 5 (LLA01).
             if (item.getMasterCode() != null && item.getMasterCode().length() > 5) {
+                // Si es un nodo hijo, el nombre original del archivo está guardado en MasterProduct.productName.
                 String originalFileName = item.getProductName();
                 int dotIndex = originalFileName.lastIndexOf('.');
+                // Devolver solo el Nombre Base (Ej: Llavero Olla x 8 V3_PLA_1h59m)
                 return new SimpleStringProperty(dotIndex != -1 ? originalFileName.substring(0, dotIndex) : originalFileName);
             }
+            // Si es el nodo padre, devolver el nombre del producto (Ej: Llavero)
             return new SimpleStringProperty(item.getProductName());
         });
 
@@ -101,41 +106,50 @@ public class InventarioController {
         try {
             List<MasterProduct> masterProductsWithStock = masterProductRepository.findAll();
 
-            // Creamos el nudo raíz oculto
             TreeItem<MasterProduct> rootItem = new TreeItem<>(null);
 
             for (MasterProduct masterProduct : masterProductsWithStock) {
-
                 MasterProductView productView = (MasterProductView) masterProduct;
+                TreeItem<MasterProduct> masterNode = new TreeItem<>(productView);
 
-                // 1. Crear el nodo Padre (Producto Maestro)
-                TreeItem<MasterProduct> masterNode =  new TreeItem<>(productView);
-
-                // 2. Obtener las Piezas asociadas
                 List<Product> pieces = productRepository.findPiecesByMasterPrefix(productView.getProductPrefix());
 
-                // 3. Llenar los nudos Hijos (Pieza Lógica)
+                // --- BUCLE NIVEL 2: Pieza Lógica (Sumatoria de Stock de todos los colores) ---
                 for (Product piece : pieces) {
-
-                    // Extraemos el nombre base para la consulta de stock (Ej: Llave_base)
                     String pieceNameBase = piece.getName().substring(0, piece.getName().lastIndexOf('.'));
+                    int totalPieceStock = productRepository.getPieceStockQuantity(pieceNameBase);
 
-                    // CONSULTAR STOCK REAL DE LA PIEZA (llamando al repositorio)
-                    int pieceStock = productRepository.getPieceStockQuantity(pieceNameBase);
-
-                    // Creamos un objeto MasterProductView temporal para el nodo hijo
-                    // Nota: Usamos MasterProductView aquí también para que el CellValueFactory pueda acceder al stock de PIEZA.
+                    // Creamos el NODO HIJO (MasterProductView para tener stock y ser expandible)
                     MasterProductView pieceNodeData = new MasterProductView(
                             piece.getCode(),
                             productView.getProductPrefix(),
-                            piece.getName(), // Nombre original del archivo (Ej: base_llave.gcode)
-                            "Archivo: " + piece.getFileExtension(), // Descripción
-                            pieceStock, // <-- STOCK REAL DE LA PIEZA
-                            0.0 // Precio
+                            piece.getName(), // Nombre completo (Ej: Llave Olla x 8 V3_PLA_1h59m.gcode)
+                            "Archivo: " + piece.getFileExtension(),
+                            totalPieceStock, // <--- STOCK TOTAL de la pieza (suma de todos los colores)
+                            0.0
                     );
-                    masterNode.getChildren().add(new TreeItem<>(pieceNodeData));
-                }
+                    TreeItem<MasterProduct> pieceNode = new TreeItem<>(pieceNodeData);
 
+                    // --- BUCLE NIVEL 3: Desglose por Color ---
+                    List<PieceStockColorView> colorStocks = productRepository.getStockByPieceNameBase(pieceNameBase);
+
+                    for (PieceStockColorView colorStock : colorStocks) {
+
+                        // Creamos un MasterProductView STUB para el NODO NIETO (Color y Cantidad)
+                        MasterProductView colorNodeData = new MasterProductView(
+                                piece.getCode() + "-" + colorStock.getColorName(), // Código único para este color
+                                productView.getProductPrefix(),
+                                colorStock.getColorName(), // Nombre del color (Ej: ROJO PLA)
+                                "Stock por Color",
+                                colorStock.getQuantityAvailable(), // <-- STOCK REAL DEL COLOR
+                                0.0
+                        );
+                        // Añadir el nodo de color al nodo de pieza
+                        pieceNode.getChildren().add(new TreeItem<>(colorNodeData));
+                    }
+
+                    masterNode.getChildren().add(pieceNode);
+                }
                 rootItem.getChildren().add(masterNode);
             }
 
@@ -146,7 +160,6 @@ public class InventarioController {
         } catch (Exception e) {
             System.err.println("❌ Error al cargar datos del stock y piezas: " + e.getMessage());
             e.printStackTrace();
-            // El error impide cargar los datos, por lo que se queda vacía.
             productStockTable.setRoot(new TreeItem<>(null));
             showAlert(AlertType.ERROR, "Error de Carga", "No se pudieron cargar los productos y sus piezas del catálogo. Razón: " + e.getMessage());
         }
@@ -428,5 +441,110 @@ public class InventarioController {
         // Asegúrate de tener este import: import javafx.scene.control.DialogPane;
         alert.getDialogPane().getStyleClass().add("hubi-dialog");
         alert.showAndWait();
+    }
+    @FXML
+    private void handleDeletePieceStock(ActionEvent event) {
+        TreeItem<MasterProduct> selectedItem = productStockTable.getSelectionModel().getSelectedItem();
+
+        if (selectedItem == null || selectedItem.getValue() == null) {
+            showAlert(AlertType.WARNING, "Selección Requerida", "Seleccione una Pieza (Línea Hijo) para eliminar stock.");
+            return;
+        }
+
+        // La acción debe operar en el nivel de PIEZA (Nodo Hijo)
+        if (selectedItem.getParent() == null || selectedItem.getParent().getValue() == null) {
+            showAlert(AlertType.WARNING, "Acción Inválida", "Solo puede eliminar stock individual de las Piezas (Nivel Hijo).");
+            return;
+        }
+
+        MasterProduct selectedPiece = selectedItem.getValue();
+        // Asumimos que la pieza seleccionada en la UI es una MasterProductView o un nodo hijo que queremos borrar.
+
+        // 1. Cargar el modal de eliminación de stock de pieza (RemovePieceStockController)
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/RemovePieceStockModal.fxml"));
+            Parent root = loader.load();
+            RemovePieceStockController controller = loader.getController();
+
+            // 2. Pasar el nombre de la pieza (sin extensión) y su código
+            String pieceNameBase = selectedPiece.getProductName().substring(0, selectedPiece.getProductName().lastIndexOf('.'));
+
+            // NOTA: Para eliminar, necesitas saber qué COLORES tiene stock (usar getStockByPieceNameBase para llenar el ComboBox)
+            // Asumo que el RemovePieceStockController manejará esta lógica.
+
+            controller.setPieceData(selectedPiece.getMasterCode(), pieceNameBase);
+
+            Stage modalStage = new Stage();
+            modalStage.setTitle("Eliminar Stock de Pieza");
+            modalStage.initModality(Modality.APPLICATION_MODAL);
+            modalStage.setScene(new Scene(root));
+            modalStage.showAndWait();
+
+            // 3. Procesar la eliminación
+            if (controller.isRemovalConfirmed()) {
+                String color = controller.getSelectedColor();
+                int quantity = controller.getQuantityToRemove();
+
+                // Llama al método que acabamos de implementar
+                productRepository.decreasePieceStockQuantity(pieceNameBase, color, quantity);
+
+                showAlert(AlertType.INFORMATION, "Éxito",
+                        quantity + " unidades de " + pieceNameBase + " (" + color + ") eliminadas.");
+                loadProductStockData();
+            }
+
+        } catch (IOException e) {
+            showAlert(AlertType.ERROR, "Error de Interfaz", "No se pudo cargar la ventana de eliminación de stock: " + e.getMessage());
+        } catch (RuntimeException e) {
+            showAlert(AlertType.ERROR, "Error de Stock", "Fallo: " + e.getMessage());
+        }
+    }
+    @FXML
+    private void handleDeleteStockColorUnit(ActionEvent event) {
+        TreeItem<MasterProduct> selectedItem = productStockTable.getSelectionModel().getSelectedItem();
+
+        if (selectedItem == null || selectedItem.getValue() == null || selectedItem.getParent() == null) {
+            showAlert(AlertType.WARNING, "Selección Requerida", "Seleccione una fila de Color (Nivel 3) para descontar.");
+            return;
+        }
+
+        MasterProduct item = selectedItem.getValue();
+
+        // 1. Validar que es un NODO NIETO (Nivel 3: El color)
+        // La validación es simple: si el nodo tiene un padre y su abuelo también tiene un valor
+        // La forma más fácil es verificar que el item sea de la clase que creamos para el color
+        if (!(item instanceof MasterProductView) || ((MasterProductView)item).getQuantityAvailable() == 0) {
+            showAlert(AlertType.WARNING, "Acción Inválida", "Solo se puede descontar de una línea de Color con stock disponible.");
+            return;
+        }
+
+        // 2. Extraer datos CRÍTICOS para la eliminación (requiere casting seguro)
+        MasterProductView colorNode = (MasterProductView) item;
+        MasterProduct pieceNode = selectedItem.getParent().getValue(); // Nodo Padre: La pieza genérica
+
+        // La clave de la pieza base está en el nombre original del nodo PIEZA.
+        String pieceNameOriginal = pieceNode.getProductName();
+        String pieceNameBase = pieceNameOriginal.substring(0, pieceNameOriginal.lastIndexOf('.'));
+        String colorName = colorNode.getProductName().replaceFirst("\\s*\\(\\d+ uds\\)", ""); // Limpiar el nombre del nodo para obtener solo el color
+
+        int quantity = 1; // Asumimos que quieres eliminar 1 unidad por defecto.
+
+        // 3. Confirmación (Opcional, pero recomendado)
+        Optional<ButtonType> result = showAlertConfirmation("Confirmar Descuento",
+                String.format("¿Desea eliminar 1 unidad del stock de Pieza (Color: %s)?", colorName));
+
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            try {
+                // 4. Lógica de Persistencia: Llamar al método de disminución de stock por color
+                productRepository.decreasePieceStockQuantity(pieceNameBase, colorName, quantity);
+
+                showAlert(AlertType.INFORMATION, "Éxito", "1 unidad de " + pieceNameBase + " (" + colorName + ") descontada.");
+                loadProductStockData(); // Recargar datos para actualizar la vista
+
+            } catch (RuntimeException e) {
+                // Captura el error de 'Stock insuficiente' o la falla SQL
+                showAlert(AlertType.ERROR, "Error de Stock", "Fallo al eliminar stock: " + e.getMessage());
+            }
+        }
     }
 }

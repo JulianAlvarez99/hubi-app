@@ -1,4 +1,5 @@
 package com.calmasalud.hubi.persistence.repository;
+import com.calmasalud.hubi.core.model.PieceStockColorView;
 import com.calmasalud.hubi.core.model.Product;
 import com.calmasalud.hubi.core.repository.IProductRepository;
 import com.calmasalud.hubi.persistence.db.SQLiteManager;
@@ -156,44 +157,118 @@ public class ProductRepositorySQLite implements IProductRepository {
         }
         return pieces;
     }
+    /**
+     * OBTENER STOCK TOTAL: Suma el stock de todos los colores de esa pieza.
+     */
     @Override
     public int getPieceStockQuantity(String pieceNameBase) {
-        String sql = "SELECT available_quantity FROM piece_stock WHERE piece_name_base = ?";
+        // Consulta CLAVE: Suma el stock de TODAS las filas que tengan esta piece_name_base.
+        String sql = "SELECT SUM(available_quantity) FROM piece_stock WHERE piece_name_base = ?";
 
-        try (Connection conn = SQLiteManager.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (java.sql.Connection conn = com.calmasalud.hubi.persistence.db.SQLiteManager.getConnection();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, pieceNameBase.trim());
             ResultSet rs = pstmt.executeQuery();
 
             if (rs.next()) {
-                return rs.getInt("available_quantity");
+                return rs.getInt(1); // Devuelve la SUMA total (que es 0 si no hay registros)
             }
         } catch (SQLException e) {
-            System.err.println("❌ Error al obtener stock de pieza: " + e.getMessage());
+            System.err.println("❌ Error al obtener stock total de pieza (SUM): " + e.getMessage());
         }
-        return 0; // Si no existe el registro, el stock es 0.
+        return 0; // Si no hay filas, el stock es cero.
     }
     @Override
-    public void increasePieceStockQuantity(String pieceNameBase, int quantity) {
-        // Inserta una nueva fila o actualiza la cantidad si el piece_name_base ya existe.
-        String sqlUpsert = "INSERT INTO piece_stock (piece_name_base, available_quantity) " +
-                "VALUES (?, ?) " +
-                "ON CONFLICT(piece_name_base) DO UPDATE SET available_quantity = available_quantity + excluded.available_quantity";
-
-        // Nota: excluded.available_quantity es la cantidad del nuevo registro (el 'quantity' que se intenta insertar).
+    public void increasePieceStockQuantity(String pieceNameBase, String colorName, int quantity) {
+        // CORRECCIÓN CLAVE: La sintaxis de UPSERT en SQLite.
+        // Usamos INSERT INTO ... ON CONFLICT DO UPDATE SET...
+        String sqlUpsert = "INSERT INTO piece_stock (piece_name_base, color_name, available_quantity) " +
+                "VALUES (?, ?, ?) " +
+                "ON CONFLICT(piece_name_base, color_name) DO UPDATE SET available_quantity = available_quantity + excluded.available_quantity";
 
         try (java.sql.Connection conn = com.calmasalud.hubi.persistence.db.SQLiteManager.getConnection();
              java.sql.PreparedStatement pstmt = conn.prepareStatement(sqlUpsert)) {
 
+            // Columnas 1, 2, 3 (INSERT)
             pstmt.setString(1, pieceNameBase);
-            pstmt.setInt(2, quantity);
+            pstmt.setString(2, colorName);
+            pstmt.setInt(3, quantity); // Este valor se usará en 'excluded.available_quantity'
 
             pstmt.executeUpdate();
 
         } catch (java.sql.SQLException e) {
-            System.err.println("❌ Error al incrementar stock de pieza: " + e.getMessage());
-            throw new RuntimeException("Fallo al actualizar el stock de la pieza.", e);
+            System.err.println("❌ ERROR SQL al incrementar stock de pieza: " + e.getMessage());
+            throw new RuntimeException("Fallo al actualizar el stock de la pieza por color. Fallo: " + e.getMessage(), e);
+        }
+    }
+    @Override
+    public List<PieceStockColorView> getStockByPieceNameBase(String pieceNameBase) {
+        List<PieceStockColorView> stockList = new ArrayList<>();
+
+        // Consulta para obtener la cantidad y color de la tabla piece_stock
+        String sql = "SELECT color_name, available_quantity FROM piece_stock WHERE piece_name_base = ?";
+
+        try (java.sql.Connection conn = com.calmasalud.hubi.persistence.db.SQLiteManager.getConnection();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, pieceNameBase.trim());
+            java.sql.ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                stockList.add(new PieceStockColorView(
+                        pieceNameBase,
+                        rs.getString("color_name"),
+                        rs.getInt("available_quantity")
+                ));
+            }
+        } catch (java.sql.SQLException e) {
+            System.err.println("❌ Error al obtener stock de pieza por color: " + e.getMessage());
+        }
+        return stockList;
+    }
+    @Override
+    public void deletePieceStockByPieceNameBase(String pieceNameBase) {
+        String sql = "DELETE FROM piece_stock WHERE piece_name_base = ?";
+
+        try (java.sql.Connection conn = com.calmasalud.hubi.persistence.db.SQLiteManager.getConnection();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, pieceNameBase.trim());
+            pstmt.executeUpdate();
+
+        } catch (java.sql.SQLException e) {
+            System.err.println("❌ Error al eliminar registro de piece_stock: " + e.getMessage());
+            // En este punto, no lanzamos una RuntimeException para permitir que el resto del borrado continúe.
+        }
+    }
+    @Override
+    public void decreasePieceStockQuantity(String pieceNameBase, String colorName, int quantity) throws RuntimeException {
+        // 1. Sentencia UPDATE que solo se ejecuta si el stock actual es suficiente para el color y cantidad dados.
+        String sql = "UPDATE piece_stock SET available_quantity = available_quantity - ? " +
+                "WHERE piece_name_base = ? AND color_name = ? AND available_quantity >= ?";
+
+        try (java.sql.Connection conn = com.calmasalud.hubi.persistence.db.SQLiteManager.getConnection();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, quantity);
+            pstmt.setString(2, pieceNameBase);
+            pstmt.setString(3, colorName);
+            pstmt.setInt(4, quantity); // La condición: stock_actual >= quantity
+
+            int rowsAffected = pstmt.executeUpdate();
+
+            if (rowsAffected == 0) {
+                // Si no se actualiza ninguna fila, es porque el stock era 0 o insuficiente
+                throw new RuntimeException(
+                        "Stock insuficiente para el color '" + colorName +
+                                "' o la pieza no tiene stock suficiente para descontar " + quantity + " unidades."
+                );
+            }
+
+        } catch (java.sql.SQLException e) {
+            System.err.println("❌ Error SQL al disminuir stock de pieza por color: " + e.getMessage());
+            throw new RuntimeException("Fallo en la persistencia al disminuir stock. Fallo: " + e.getMessage(), e);
         }
     }
 }
