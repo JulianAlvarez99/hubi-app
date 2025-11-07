@@ -4,6 +4,7 @@ package com.calmasalud.hubi.core.service;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -466,8 +467,6 @@ public class CatalogService {
 
     /**
      * Elimina un Producto completo (su carpeta y todas las piezas dentro) Y el registro maestro.
-     * @param productDirectory Directorio del producto a eliminar.
-     * @throws IOException Si el directorio no es válido o falla la eliminación.
      */
     public void deleteProduct(File productDirectory) throws IOException {
 
@@ -479,16 +478,29 @@ public class CatalogService {
         String masterCode = getMasterCodeByProductName(productName);
         Path productPath = productDirectory.toPath();
 
+        // Lista para almacenar los nombres base de las piezas para la limpieza de piece_stock
+        final List<String> pieceNamesToDeleteStock = new ArrayList<>();
+
         // 1. Eliminar registros de la BD para cada archivo dentro del directorio (Piezas)
         Files.walk(productPath)
-                .filter(Files::isRegularFile) // Solo archivos
+                .filter(Files::isRegularFile)
                 .forEach(path -> {
                     File pieceFile = path.toFile();
                     String fileName = pieceFile.getName();
                     String code = "";
                     int lastDotIndex = fileName.lastIndexOf('.');
+
                     if (lastDotIndex != -1 && lastDotIndex > 0) {
                         code = fileName.substring(0, lastDotIndex);
+
+                        // LÓGICA CRÍTICA: Obtener el nombre base ANTES de eliminar el registro de 'products'
+                        Product piece = productRepository.findByCode(code);
+                        if (piece != null) {
+                            String pieceNameBase = piece.getName().substring(0, piece.getName().lastIndexOf('.'));
+                            pieceNamesToDeleteStock.add(pieceNameBase);
+                        }
+
+                        // Eliminar registro de la tabla 'products'
                         try {
                             productRepository.deleteByCode(code);
                         } catch (Exception e) {
@@ -505,11 +517,17 @@ public class CatalogService {
                 .map(Path::toFile)
                 .forEach(File::delete);
 
-        // 3. Eliminar el registro de Producto Maestro y su Stock (RF4)
+        // 3. Eliminar el registro de Producto Maestro y su Stock Final
         if (masterCode != null) {
-            // ESTO RESUELVE EL ERROR DE COMPILACIÓN EN LA LÍNEA 507
             masterProductRepository.deleteProduct(masterCode);
-            System.out.println("✅ Registro Maestro y Stock eliminados para: " + masterCode);
+
+            // 4. LIMPIEZA CRÍTICA: Eliminar el Stock de las Piezas Asociadas (Limpia la tabla piece_stock)
+            pieceNamesToDeleteStock.stream().distinct().forEach(pieceNameBase -> {
+                productRepository.deletePieceStockByPieceNameBase(pieceNameBase);
+                System.out.println("✅ Stock de Pieza Base eliminado de piece_stock: " + pieceNameBase);
+            });
+
+            System.out.println("✅ Registro Maestro y Stock final eliminados para: " + masterCode);
         }
 
         // Verificar si realmente se borró (puede fallar por permisos, etc.)
@@ -519,6 +537,7 @@ public class CatalogService {
             System.out.println("✅ Producto (carpeta y piezas) eliminado: " + productDirectory.getName());
         }
     }
+
     public void verifyPieceAvailability(String masterCode, int quantity) throws IOException {
         // 1. Obtener la composición (BOM) requerida para 1 unidad
         List<ProductComposition> composition = productCompositionRepository.getComposition(masterCode);
@@ -527,20 +546,14 @@ public class CatalogService {
             throw new IOException("Error de composición: La receta del producto (BOM) no ha sido definida.");
         }
 
-        // 2. Obtener todas las PIEZAS CARGADAS (archivos) para este producto
-        String productPrefix = masterCode.substring(0, 3); // Ej: LLA de LLA01
-        List<Product> availablePieces = productRepository.findPiecesByMasterPrefix(productPrefix);
-
-        // Contar la disponibilidad real por nombre base de pieza
-        Map<String, Long> availableCount = availablePieces.stream()
-                .map(p -> p.getName().substring(0, p.getName().lastIndexOf('.'))) // Obtener Nombre Base (Ej: Llave_base)
-                .collect(Collectors.groupingBy(name -> name, Collectors.counting()));
-
+        // 2. Verificar si se cumplen los requisitos para la cantidad total (BOM x Cantidad)
         for (ProductComposition requiredPiece : composition) {
             String pieceNameBase = requiredPiece.getPieceNameBase();
             int totalRequired = requiredPiece.getRequiredQuantity() * quantity;
 
-            // CORRECCIÓN CLAVE: LEER DE LA NUEVA TABLA piece_stock
+            // CORRECCIÓN CLAVE: CONSULTAR STOCK TOTAL DISPONIBLE (SUMA DE TODOS LOS COLORES)
+            // La implementación del repositorio suma el campo 'available_quantity' de todas
+            // las filas con ese 'piece_name_base' en la tabla piece_stock.
             long currentAvailable = productRepository.getPieceStockQuantity(pieceNameBase);
 
             if (currentAvailable < totalRequired) {
@@ -552,7 +565,6 @@ public class CatalogService {
                 );
             }
         }
-
     }
     public MasterProduct findByProductPrefix(String prefix) {
         // Asumimos que la implementación del repositorio existe y se llama aquí:

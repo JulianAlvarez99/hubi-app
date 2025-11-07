@@ -71,16 +71,19 @@ public class AddPieceStockController {
         if (cmbColor4 != null) cmbColor4.setItems(colorsWithNone);
     }
 
+    // Dentro de AddPieceStockController.java
+
+// NOTA: El campo txtCantidad debe existir en el FXML.
+
     @FXML
     private void handleRegister() {
         if (cmbColor1.getValue() == null || cmbColor1.getValue().isEmpty()) {
-            showAlert(Alert.AlertType.ERROR, "Validación", "Debe seleccionar el Color 1.");
+            showAlert(Alert.AlertType.ERROR, "Validación", "Debe seleccionar el Color 1 (principal).");
             return;
         }
 
         int quantity;
         try {
-            // Leer la cantidad del TextField
             quantity = Integer.parseInt(txtCantidad.getText());
             if (quantity <= 0) {
                 showAlert(Alert.AlertType.ERROR, "Validación", "La cantidad debe ser mayor a 0.");
@@ -92,21 +95,19 @@ public class AddPieceStockController {
         }
 
         try {
-            // LÓGICA DE PERSISTENCIA:
-            // 1. Obtener el nombre base de la pieza (Ej: Llave Olla x 8 V3_PLA_1h59m)
+            // LÓGICA CLAVE: Obtener nombre base y COLOR
             String pieceNameBase = this.pieceName.substring(0, this.pieceName.lastIndexOf('.'));
             String colorUsed = cmbColor1.getValue();
 
-            // 2. AUMENTAR STOCK REAL de la pieza (en la tabla piece_stock)
-            productRepository.increasePieceStockQuantity(pieceNameBase, quantity);
+            // LLAMADA AL REPOSITORIO CON EL COLOR Y LA CANTIDAD
+            // (Esto resuelve la falla de lógica y el problema de las 6 piezas totales.)
+            productRepository.increasePieceStockQuantity(pieceNameBase, colorUsed, quantity);
 
-            // 3. LA CANTIDAD DE PIEZAS DISPONIBLES POR COLOR (LÓGICA FUTURA)
-            // Nota: La información de color (cmbColor1) se almacenaría en una tabla de
-            // Producción/Log para el descuento de insumos (RF9), que aún no está implementada.
+            // NOTA: Se ignora cmbColor2, 3, 4 por ahora, ya que la lógica de multi-color es para el descuento (RF9).
 
             this.productionRegistered = true;
             showAlert(Alert.AlertType.INFORMATION, "Registro Exitoso",
-                    quantity + " unidades de '" + pieceNameBase + "' registradas.");
+                    quantity + " unidades de '" + pieceNameBase + "' (Color: " + colorUsed + ") registradas.");
             closeStage();
 
         } catch (RuntimeException e) {

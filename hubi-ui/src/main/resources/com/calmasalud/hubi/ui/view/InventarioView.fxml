@@ -29,7 +29,9 @@
             <HBox alignment="CENTER" spacing="10.0">
                 <Button text="AGREGAR PRODUCTO" styleClass="action-button" onAction="#handleAddProductStock" />
                 <Button text="AGREGAR PIEZA " styleClass="action-button" onAction="#handleModifyPieceStock" />
-                <Button text="ELIMINAR STOCK PIEZA " styleClass="action-button" onAction="#handleRemoveStockUnit" />
+                <Button text="ELIMINAR STOCK PIEZA " styleClass="action-button" onAction="#handleDeleteStockColorUnit" />
+
+
             </HBox>
         </VBox>
 
