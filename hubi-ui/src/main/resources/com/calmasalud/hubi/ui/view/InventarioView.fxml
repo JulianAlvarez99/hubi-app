@@ -26,12 +26,16 @@
                     <TreeTableColumn fx:id="colProductoPrecio" text="Valor" prefWidth="100.0" />
                 </columns>
             </TreeTableView>
+            <Label styleClass="section-subtitle" text="Acciones sobre el Stock Final (Producto Terminado)" />
             <HBox alignment="CENTER" spacing="10.0">
-                <Button text="AGREGAR PRODUCTO" styleClass="action-button" onAction="#handleAddProductStock" />
+                <Button text="AGREGAR STOCK FINAL" styleClass="action-button" onAction="#handleAddProductStock" />
+                <Button text="ELIMINAR STOCK PRODUCTO" styleClass="delete-button" onAction="#handleDeleteProductStock" />
+            </HBox>
+
+            <Label styleClass="section-subtitle" text="Acciones sobre el Stock Granular (Piezas)" />
+            <HBox alignment="CENTER" spacing="10.0">
                 <Button text="AGREGAR PIEZA " styleClass="action-button" onAction="#handleModifyPieceStock" />
                 <Button text="ELIMINAR STOCK PIEZA " styleClass="action-button" onAction="#handleDeleteStockColorUnit" />
-
-
             </HBox>
         </VBox>
 

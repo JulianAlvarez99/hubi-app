@@ -1,5 +1,7 @@
 package com.calmasalud.hubi.ui.util;
 
+import javafx.scene.control.Alert;
+
 import java.util.prefs.Preferences;
 
 public class UISettings {
@@ -69,5 +71,28 @@ public class UISettings {
      */
     public double loadBaseFontSize() {
         return prefs.getDouble(KEY_BASE_FONT_SIZE, DEFAULT_BASE_FONT_SIZE);
+    }
+    /**
+     * Muestra una ventana de alerta de forma estática.
+     */
+    /**
+     * Versión principal de 4 argumentos. Llamada por métodos estáticos.
+     */
+    public static void showAlert(Alert.AlertType type, String title, String header, String content) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(header);
+        alert.setContentText(content);
+        alert.getDialogPane().getStyleClass().add("hubi-dialog");
+        alert.showAndWait();
+    }
+
+    /**
+     * Versión de 3 argumentos (La que probablemente fallaba en CompositionController).
+     * Delega a la versión de 4 argumentos con un header nulo.
+     */
+    public static void showAlert(Alert.AlertType type, String title, String content) {
+        // Delega la llamada, pasando null como header
+        showAlert(type, title, null, content);
     }
 }

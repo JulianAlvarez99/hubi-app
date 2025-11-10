@@ -1,5 +1,6 @@
 package com.calmasalud.hubi.core.repository;
 import com.calmasalud.hubi.core.model.PieceStockColorView;
+import com.calmasalud.hubi.core.model.PieceStockDeduction;
 import com.calmasalud.hubi.core.model.Product;
 
 import java.util.List;
@@ -34,4 +35,5 @@ public interface IProductRepository {
     List<PieceStockColorView> getStockByPieceNameBase(String pieceNameBase);
     void deletePieceStockByPieceNameBase(String pieceNameBase);
     void decreasePieceStockQuantity(String pieceNameBase, String colorName, int quantity) throws RuntimeException;
+    void decreasePieceStockBatch(List<PieceStockDeduction> deductions) throws RuntimeException;
 }
