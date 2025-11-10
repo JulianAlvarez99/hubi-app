@@ -503,6 +503,7 @@ public class InventarioController {
     private void handleDeleteStockColorUnit(ActionEvent event) {
         TreeItem<MasterProduct> selectedItem = productStockTable.getSelectionModel().getSelectedItem();
 
+        // Validaciones iniciales de selección
         if (selectedItem == null || selectedItem.getValue() == null || selectedItem.getParent() == null) {
             showAlert(AlertType.WARNING, "Selección Requerida", "Seleccione una fila de Color (Nivel 3) para descontar.");
             return;
@@ -510,41 +511,122 @@ public class InventarioController {
 
         MasterProduct item = selectedItem.getValue();
 
-        // 1. Validar que es un NODO NIETO (Nivel 3: El color)
-        // La validación es simple: si el nodo tiene un padre y su abuelo también tiene un valor
-        // La forma más fácil es verificar que el item sea de la clase que creamos para el color
-        if (!(item instanceof MasterProductView) || ((MasterProductView)item).getQuantityAvailable() == 0) {
-            showAlert(AlertType.WARNING, "Acción Inválida", "Solo se puede descontar de una línea de Color con stock disponible.");
+        // 1. Validar que es un NODO NIETO (Nivel 3: El color) y extraer el stock actual
+        if (!(item instanceof MasterProductView)) {
+            showAlert(AlertType.WARNING, "Acción Inválida", "Solo se puede descontar de una línea de Color.");
             return;
         }
 
-        // 2. Extraer datos CRÍTICOS para la eliminación (requiere casting seguro)
         MasterProductView colorNode = (MasterProductView) item;
-        MasterProduct pieceNode = selectedItem.getParent().getValue(); // Nodo Padre: La pieza genérica
+        int currentAvailable = colorNode.getQuantityAvailable(); // Stock actual del color
 
-        // La clave de la pieza base está en el nombre original del nodo PIEZA.
+        if (currentAvailable <= 0) {
+            showAlert(AlertType.WARNING, "Stock Insuficiente", "El color seleccionado no tiene stock disponible para descontar.");
+            return;
+        }
+
+        // 2. Extracción de datos CRÍTICOS
+        // --- CORRECCIÓN DEL NPE ---
+        TreeItem<MasterProduct> pieceNodeItem = selectedItem.getParent();
+
+        if (pieceNodeItem == null || pieceNodeItem.getValue() == null) {
+            showAlert(AlertType.ERROR, "Error de Datos", "No se pudo identificar la pieza base. Seleccione un Color válido.");
+            return;
+        }
+        // --------------------------
+
+        MasterProduct pieceNode = pieceNodeItem.getValue(); // Nodo Padre: La pieza genérica
         String pieceNameOriginal = pieceNode.getProductName();
         String pieceNameBase = pieceNameOriginal.substring(0, pieceNameOriginal.lastIndexOf('.'));
         String colorName = colorNode.getProductName().replaceFirst("\\s*\\(\\d+ uds\\)", ""); // Limpiar el nombre del nodo para obtener solo el color
 
-        int quantity = 1; // Asumimos que quieres eliminar 1 unidad por defecto.
+        // 3. SOLICITAR LA CANTIDAD A ELIMINAR (usando TextInputDialog)
+        TextInputDialog dialog = new TextInputDialog("1");
+        dialog.setTitle("Eliminar Stock de Pieza");
+        dialog.setHeaderText("Pieza: " + pieceNameBase + " | Color: " + colorName);
+        dialog.setContentText("Ingrese la cantidad de unidades a eliminar (Disponibles: " + currentAvailable + "):");
+        dialog.getDialogPane().getStyleClass().add("hubi-dialog");
 
-        // 3. Confirmación (Opcional, pero recomendado)
-        Optional<ButtonType> result = showAlertConfirmation("Confirmar Descuento",
-                String.format("¿Desea eliminar 1 unidad del stock de Pieza (Color: %s)?", colorName));
+        Optional<String> result = dialog.showAndWait();
 
-        if (result.isPresent() && result.get() == ButtonType.OK) {
+        if (result.isPresent()) {
+            int quantityToRemove;
             try {
-                // 4. Lógica de Persistencia: Llamar al método de disminución de stock por color
-                productRepository.decreasePieceStockQuantity(pieceNameBase, colorName, quantity);
+                // Validación y Conversión
+                quantityToRemove = Integer.parseInt(result.get());
 
-                showAlert(AlertType.INFORMATION, "Éxito", "1 unidad de " + pieceNameBase + " (" + colorName + ") descontada.");
+                if (quantityToRemove <= 0) {
+                    showAlert(AlertType.ERROR, "Error de Entrada", "La cantidad debe ser mayor a 0.");
+                    return;
+                }
+
+                if (quantityToRemove > currentAvailable) {
+                    showAlert(AlertType.ERROR, "Error de Stock",
+                            "La cantidad a eliminar (" + quantityToRemove + ") no puede exceder las unidades disponibles (" + currentAvailable + ").");
+                    return;
+                }
+
+                // 4. Lógica de Persistencia: Llamar al método de disminución de stock por color
+                productRepository.decreasePieceStockQuantity(pieceNameBase, colorName, quantityToRemove);
+
+                showAlert(AlertType.INFORMATION, "Éxito", quantityToRemove + " unidades de " + pieceNameBase + " (" + colorName + ") descontadas.");
                 loadProductStockData(); // Recargar datos para actualizar la vista
 
+            } catch (NumberFormatException e) {
+                showAlert(AlertType.ERROR, "Error de Entrada", "Por favor, ingrese un número entero válido.");
             } catch (RuntimeException e) {
                 // Captura el error de 'Stock insuficiente' o la falla SQL
                 showAlert(AlertType.ERROR, "Error de Stock", "Fallo al eliminar stock: " + e.getMessage());
             }
+        }
+    }
+    /**
+     * ACCIÓN: Abre el modal para eliminar stock de Producto Maestro,
+     * descontando piezas por color según la composición.
+     */
+    @FXML
+    private void handleDeleteProductStock(ActionEvent event) {
+        TreeItem<MasterProduct> selectedItem = productStockTable.getSelectionModel().getSelectedItem();
+
+        if (selectedItem == null || selectedItem.getValue() == null) {
+            showAlert(AlertType.WARNING, "Selección Requerida", "Seleccione un Producto Maestro (Línea Padre) para eliminar stock por composición.");
+            return;
+        }
+
+        // Validación jerárquica: Debe ser el nodo Padre (su padre es la raíz invisible, cuyo .getValue() es null)
+        if (selectedItem.getParent() == null || selectedItem.getParent().getValue() != null) {
+            showAlert(AlertType.WARNING, "Acción Inválida", "Solo puede eliminar stock por composición seleccionando la línea principal (Producto Maestro).");
+            return;
+        }
+
+        MasterProduct selectedProduct = selectedItem.getValue();
+
+        try {
+            // 1. Cargar el FXML y obtener el controlador del modal
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/RemoveProductStockModal.fxml"));
+            Parent root = loader.load();
+            RemoveProductStockController controller = loader.getController();
+
+            // 2. Inyectar dependencias (usando las ya definidas en InventarioController)
+            controller.setDependencies(catalogService, productCompositionRepository, productRepository);
+
+            // 3. Inicializar datos del modal
+            // Nota: MasterProductView hereda de MasterProduct, por lo que selectedProduct funciona.
+            controller.initData(selectedProduct);
+
+            // 4. Mostrar la ventana emergente (modal)
+            Stage modalStage = new Stage();
+            modalStage.setTitle("Eliminar Stock de Producto - " + selectedProduct.getProductName());
+            modalStage.initModality(Modality.APPLICATION_MODAL);
+            modalStage.setScene(new Scene(root));
+            modalStage.showAndWait();
+
+            // 5. Recargar datos después de cerrar el modal para reflejar los cambios
+            loadProductStockData();
+
+        } catch (IOException e) {
+            showAlert(AlertType.ERROR, "Error de Interfaz", "No se pudo cargar la ventana de deducción de stock: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }

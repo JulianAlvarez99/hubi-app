@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.calmasalud.hubi.core.model.MasterProduct;
+import com.calmasalud.hubi.core.model.PieceStockDeduction;
 import com.calmasalud.hubi.core.model.Product;
 import com.calmasalud.hubi.core.model.ProductComposition;
 import com.calmasalud.hubi.core.repository.IMasterProductRepository;
@@ -609,4 +610,31 @@ public class CatalogService {
         // 4. Llamar a la lógica de eliminación ya existente (que maneja BD, Archivo, y Carpeta Vacía)
         deletePiece(pieceFile);
     }
+
+    /**
+     * Disminuye el stock disponible del Producto Maestro (Finished Stock).
+     * @param masterCode El código del producto maestro (Ej: LLA01).
+     * @param quantity Cantidad de unidades a descontar.
+     * @throws RuntimeException Si hay un error de persistencia o stock insuficiente.
+     */
+    public void decreaseMasterProductStock(String masterCode, int quantity) throws RuntimeException {
+        // Asumimos que masterProductRepository.decreaseStock está disponible
+        // y maneja la validación de stock.
+        masterProductRepository.decreaseStock(masterCode, quantity);
+    }
+    public void deleteProductStockByComposition(String masterCode, List<PieceStockDeduction> deductions) throws IOException {
+        if (deductions == null || deductions.isEmpty()) {
+            throw new IllegalArgumentException("La lista de deducciones de stock no puede estar vacía.");
+        }
+
+        try {
+            // Llamada al método transaccional del repositorio
+            productRepository.decreasePieceStockBatch(deductions);
+
+        } catch (RuntimeException e) {
+            // Capturamos el error de runtime del repositorio y lo lanzamos como IOException para la UI
+            throw new IOException("Fallo al descontar el stock de piezas. La operación fue revertida. Razón: " + e.getMessage(), e);
+        }
+    }
 }
+

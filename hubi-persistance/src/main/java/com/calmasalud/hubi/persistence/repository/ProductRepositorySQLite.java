@@ -1,5 +1,6 @@
 package com.calmasalud.hubi.persistence.repository;
 import com.calmasalud.hubi.core.model.PieceStockColorView;
+import com.calmasalud.hubi.core.model.PieceStockDeduction;
 import com.calmasalud.hubi.core.model.Product;
 import com.calmasalud.hubi.core.repository.IProductRepository;
 import com.calmasalud.hubi.persistence.db.SQLiteManager;
@@ -216,10 +217,17 @@ public class ProductRepositorySQLite implements IProductRepository {
             java.sql.ResultSet rs = pstmt.executeQuery();
 
             while (rs.next()) {
+                String colorName = rs.getString("color_name");
+                int availableQuantity = rs.getInt("available_quantity");
+
+                // *** PUNTO CRÍTICO DE DEBUGGING ***
+                System.out.println("DEBUG REPO STOCK: Pieza: " + pieceNameBase + ", Clave en DB: " + colorName + ", Cantidad: " + availableQuantity);
+                // **********************************
+
                 stockList.add(new PieceStockColorView(
                         pieceNameBase,
-                        rs.getString("color_name"),
-                        rs.getInt("available_quantity")
+                        colorName, // Usa la clave tal como viene de la DB
+                        availableQuantity
                 ));
             }
         } catch (java.sql.SQLException e) {
@@ -269,6 +277,62 @@ public class ProductRepositorySQLite implements IProductRepository {
         } catch (java.sql.SQLException e) {
             System.err.println("❌ Error SQL al disminuir stock de pieza por color: " + e.getMessage());
             throw new RuntimeException("Fallo en la persistencia al disminuir stock. Fallo: " + e.getMessage(), e);
+        }
+    }
+    @Override
+    public void decreasePieceStockBatch(List<PieceStockDeduction> deductions) throws RuntimeException {
+        Connection conn = null;
+        try {
+            conn = SQLiteManager.getConnection(); // Obtener la conexión
+            conn.setAutoCommit(false); // <--- INICIO DE LA TRANSACCIÓN
+
+            for (PieceStockDeduction deduction : deductions) {
+                // Reutilizamos la lógica de disminución de stock (que ahora debe usar la conexión transaccional)
+
+                // Si decreasePieceStockQuantity abre/cierra su propia conexión,
+                // este método fallará. Asumiendo una versión simplificada:
+
+                // Lógica de UPDATE SQL usando la 'conn' transaccional
+                String sql = "UPDATE piece_stock SET available_quantity = available_quantity - ? " +
+                        "WHERE piece_name_base = ? AND color_name = ? AND available_quantity >= ?";
+
+                try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                    pstmt.setInt(1, deduction.getQuantity());
+                    pstmt.setString(2, deduction.getPieceNameBase());
+                    pstmt.setString(3, deduction.getColor());
+                    pstmt.setInt(4, deduction.getQuantity());
+
+                    int rowsAffected = pstmt.executeUpdate();
+
+                    if (rowsAffected == 0) {
+                        // Si el stock es insuficiente, lanzamos una excepción para forzar el rollback
+                        throw new RuntimeException("Stock insuficiente para descontar " + deduction.getQuantity() +
+                                " unidades de " + deduction.getPieceNameBase() + " (" + deduction.getColor() + ").");
+                    }
+                }
+            }
+
+            conn.commit(); // <--- CONFIRMACIÓN SÓLO SI TODAS LAS DEDUCCIONES FUERON EXITOSAS
+
+        } catch (Exception e) {
+            if (conn != null) {
+                try {
+                    conn.rollback(); // <--- REVERSIÓN DE TODO EL LOTE
+                } catch (SQLException rollbackEx) {
+                    System.err.println("Error durante el rollback: " + rollbackEx.getMessage());
+                }
+            }
+            // Propagar la excepción para que el CatalogService la capture y la UI muestre el error.
+            throw new RuntimeException("Fallo en la deducción por lotes. La operación fue revertida. Causa: " + e.getMessage(), e);
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException closeEx) {
+                    System.err.println("Error al cerrar conexión después de la transacción: " + closeEx.getMessage());
+                }
+            }
         }
     }
 }
