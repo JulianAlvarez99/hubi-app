@@ -95,4 +95,5 @@ public class UISettings {
         // Delega la llamada, pasando null como header
         showAlert(type, title, null, content);
     }
+
 }

@@ -40,6 +40,15 @@
             <artifactId>slf4j-simple</artifactId>
             <version>${slf4j.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.interactivemesh</groupId>
+            <artifactId>jfx3dimporter</artifactId>
+            <version>1.0</version> <scope>system</scope>
+
+            <systemPath>${project.basedir}/../libs/jimStlMeshImporterJFX.jar</systemPath>
+        </dependency>
+
     </dependencies>
 
     <build>

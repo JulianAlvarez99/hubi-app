@@ -16,9 +16,11 @@ import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
+import javafx.geometry.Bounds;
 import javafx.scene.control.*;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.layout.StackPane;
+import javafx.scene.transform.Rotate;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.scene.Node;
@@ -38,6 +40,18 @@ import java.util.Locale;
 import java.util.Optional;
 import javafx.scene.control.*;
 
+import com.interactivemesh.jfx.importer.stl.StlMeshImporter;
+import com.interactivemesh.jfx.importer.ImportException;
+import javafx.scene.shape.TriangleMesh;
+import javafx.scene.shape.MeshView;
+import javafx.scene.paint.PhongMaterial;
+import javafx.scene.paint.Color;
+import javafx.scene.SubScene;
+import javafx.scene.Group;
+import javafx.scene.PerspectiveCamera;
+import javafx.scene.SceneAntialiasing;
+import javafx.scene.AmbientLight;
+
 
 public class CatalogManagerController {
 
@@ -54,6 +68,19 @@ public class CatalogManagerController {
     private final CatalogService catalogoService = new CatalogService(productSqliteRepository, masterProductRepository, productCompositionRepository);
 
     private final FileParameterExtractor extractor = new FileParameterExtractor();
+
+    // Variables para guardar la posición del mouse al hacer clic
+    private double anchorX, anchorY;
+
+    // Variables para guardar el ángulo de rotación actual
+    private double anchorAngleX = 0;
+    private double anchorAngleY = 0;
+
+    // Transformaciones de rotación que se aplicarán al modelo
+    // (Las definimos aquí para poder acceder a ellas en los eventos del mouse)
+    private final Rotate rotateX = new Rotate(0, Rotate.X_AXIS);
+    private final Rotate rotateY = new Rotate(0, Rotate.Y_AXIS);
+    private static final double ROTATION_SPEED = 0.5;
     // ---------------------------------
 
     // Campo para mantener el directorio seleccionado
@@ -110,7 +137,7 @@ public class CatalogManagerController {
                 if (empty || item == null) {
                     setText(null);
                 } else if (item.equals(REPOSITORIO_BASE)) {
-                    setText("Repositorio Master"); // Etiqueta raíz
+                    setText("Catálogo"); // Etiqueta raíz
                 } else {
                     setText(item.getName()); // Nombre de carpeta/archivo
                 }
@@ -279,10 +306,18 @@ public class CatalogManagerController {
             }
         }
 
-
         // 4. Extraer y cargar parámetros
         FileParameterExtractor.PrintInfo info = extractor.extract(filesToProcess);
         loadParameters(info);
+
+        // 5. Cargar modelo 3D (.stl)
+        File stlFile = new File(parentDir, baseName + ".stl");
+        if (stlFile.exists()) {
+            loadStlModel(stlFile);
+        } else {
+            // Si no hay .stl, limpiar el visor y mostrar placeholder
+            clear3DViewer();
+        }
     }
 
     /**
@@ -411,6 +446,181 @@ public class CatalogManagerController {
         // Mantiene el valor en paramPrecioPorGramo
         paramCosto.setText("");
         lblNombreArchivo.setText("(Seleccione un archivo)");
+
+        //Limpiar el visor 3D
+        clear3DViewer();
+    }
+
+    // ... (imports y campos de rotación sin cambios) ...
+
+    /**
+     * Carga un archivo .stl en el StackPane (visor3DPlaceholder).
+     *
+     * [SOLUCIÓN DEFINITIVA] Corrige el problema de expansión infinita (ciclo de layout)
+     * usando subScene.setManaged(false).
+     *
+     * @param stlFile El archivo .stl a cargar.
+     */
+    private void loadStlModel(File stlFile) {
+        try {
+            // 1. Importar el mesh (Sin cambios)
+            StlMeshImporter importer = new StlMeshImporter();
+            importer.read(stlFile.toURI().toURL());
+            TriangleMesh mesh = importer.getImport();
+            importer.close();
+
+            // 2. Crear MeshView y obtener Bounds (Sin cambios)
+            MeshView meshView = new MeshView(mesh);
+            Bounds bounds = meshView.getBoundsInLocal();
+
+            // 3. Lógica de centrado y escalado (Sin cambios)
+            double centerX = bounds.getCenterX();
+            double centerY = bounds.getCenterY();
+            double centerZ = bounds.getCenterZ();
+            double maxDim = Math.max(bounds.getWidth(), Math.max(bounds.getHeight(), bounds.getDepth()));
+            double targetSize = 100.0;
+            double scaleFactor = targetSize / maxDim;
+
+            // 4. Aplicar material (Sin cambios)
+            PhongMaterial material = new PhongMaterial(Color.SLATEGRAY);
+            meshView.setMaterial(material);
+
+            // 5. Aplicar transformaciones (Sin cambios)
+            meshView.setTranslateX(-centerX);
+            meshView.setTranslateY(-centerY);
+            meshView.setTranslateZ(-centerZ);
+            meshView.setScaleX(scaleFactor);
+            meshView.setScaleY(scaleFactor);
+            meshView.setScaleZ(scaleFactor);
+
+            // 6. Aplicar rotaciones (Sin cambios)
+            rotateX.setAngle(0);
+            rotateY.setAngle(0);
+
+
+//            // 7. Crear Grupo 3D y Luz (Sin cambios)
+//            Group root3D = new Group(meshView);
+//            AmbientLight light = new AmbientLight(Color.rgb(200, 200, 200));
+//            root3D.getChildren().add(light);
+
+
+//            // --- [INICIO DE LA CORRECCIÓN DEFINITIVA] ---
+//
+//            // 8. Crear la SubScene (El tamaño inicial 1,1 está bien, ya no importa)
+//            SubScene subScene = new SubScene(root3D, 1, 1, true, SceneAntialiasing.BALANCED);
+//
+//            subScene.setFill(Color.TRANSPARENT);
+
+            // 9. Configurar la Cámara (Sin cambios)
+            PerspectiveCamera camera = new PerspectiveCamera(true);
+            camera.setTranslateZ(-targetSize * 3); // Ej. -300
+            camera.setFarClip(10000);
+            // Este es un Grupo invisible en el origen (0,0,0)
+            Group cameraPivot = new Group();
+            // Añadimos la cámara como "hija" del pivote
+            cameraPivot.getChildren().add(camera);
+            // AHORA al PIVOTE de la cámara, no al objeto.
+            cameraPivot.getTransforms().addAll(rotateX, rotateY);
+            // El grupo raíz ahora contiene el OBJETO (en el centro)
+            // y el PIVOTE DE LA CÁMARA (también en el centro).
+            Group root3D = new Group(meshView, cameraPivot);
+            AmbientLight light = new AmbientLight(Color.rgb(200, 200, 200));
+            root3D.getChildren().add(light);
+
+            // 9. Crear la SubScene
+            SubScene subScene = new SubScene(root3D, 1, 1, true, SceneAntialiasing.BALANCED);
+            subScene.setFill(Color.TRANSPARENT); // Para capturar eventos en área vacía
+
+            // 10. Asignar la cámara de la SubScene
+            // (Es la cámara que ya está dentro del pivote)
+            subScene.setCamera(camera);
+
+            // 10. [LA SOLUCIÓN] Desvincular la SubScene del layout del StackPane
+            // Esto rompe el ciclo de layout infinito que causa la expansión.
+            // El StackPane (visor3DPlaceholder) ahora determinará su propio tamaño
+            // (basado en el FXML y el VBox) y la SubScene simplemente lo llenará.
+            subScene.setManaged(false);
+
+            // 11. Vincular el tamaño de la SubScene al tamaño del StackPane (Sin cambios)
+            // Esto ahora funciona porque es una relación de una sola vía.
+            subScene.widthProperty().bind(visor3DPlaceholder.widthProperty());
+            subScene.heightProperty().bind(visor3DPlaceholder.heightProperty());
+
+            // --- [FIN DE LA CORRECCIÓN DEFINITIVA] ---
+
+
+            // 12. Añadir listeners de mouse para rotar (Sin cambios)
+            subScene.setOnMousePressed(event -> {
+                anchorX = event.getSceneX();
+                anchorY = event.getSceneY();
+                anchorAngleX = rotateX.getAngle();
+                anchorAngleY = rotateY.getAngle();
+                event.consume();
+            });
+
+            subScene.setOnMouseDragged(event -> {
+                // Calcular el delta (cuánto se movió el mouse) Y APLICAR LA VELOCIDAD
+                double deltaX = (event.getSceneX() - anchorX) * ROTATION_SPEED;
+                double deltaY = (event.getSceneY() - anchorY) * ROTATION_SPEED;
+
+                // El eje X rota con el arrastre Vertical (Y)
+                // El eje Y rota con el arrastre Horizontal (X)
+                double newAngleX = anchorAngleX - deltaY;
+                double newAngleY = anchorAngleY + deltaX;
+                rotateX.setAngle(newAngleX);
+                rotateY.setAngle(newAngleY);
+                event.consume();
+            });
+
+            // --- [NUEVO] AÑADIR ZOOM CON CTRL + RUEDA ---
+            subScene.setOnScroll(event -> {
+                // Verificar si la tecla CTRL está presionada
+                if (event.isControlDown()) {
+                    // Obtener la dirección del scroll (deltaY)
+                    double delta = event.getDeltaY();
+
+                    // Obtener la posición Z actual de la cámara
+                    double currentZoom = camera.getTranslateZ();
+
+                    // Definir una velocidad de zoom
+                    double zoomFactor = 1.3;
+
+                    if (delta < 0) {
+                        // Alejar (scroll hacia abajo)
+                        camera.setTranslateZ(currentZoom * zoomFactor);
+                    } else {
+                        // Acercar (scroll hacia arriba)
+                        camera.setTranslateZ(currentZoom / zoomFactor);
+                    }
+                    event.consume();
+                }
+            });
+
+            // 13. Mostrar la SubScene (Sin cambios)
+            visor3DPlaceholder.getChildren().clear();
+            visor3DPlaceholder.getChildren().add(subScene);
+
+        } catch (ImportException e) {
+            System.err.println("Error de jfx3dimporter al cargar STL: " + e.getMessage());
+            e.printStackTrace();
+            clear3DViewer();
+        } catch (Exception e) {
+            System.err.println("Error general al cargar el modelo: " + e.getMessage());
+            e.printStackTrace();
+            clear3DViewer();
+        }
+    }
+
+    /**
+     * Limpia el visor 3D y restaura el Label de placeholder.
+     */
+    private void clear3DViewer() {
+        // Evitar añadir el label múltiples veces
+        if (visor3DPlaceholder.getChildren().isEmpty() || !(visor3DPlaceholder.getChildren().get(0) instanceof Label)) {
+            visor3DPlaceholder.getChildren().clear();
+            Label placeholderLabel = new Label("(Visor 3D Interactivo)");
+            visor3DPlaceholder.getChildren().add(placeholderLabel);
+        }
     }
 
     // method recursivo para construir el TreeView

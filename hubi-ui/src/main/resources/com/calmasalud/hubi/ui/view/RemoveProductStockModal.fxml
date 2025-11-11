@@ -11,7 +11,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<AnchorPane prefHeight="500.0" prefWidth="700.0" styleClass="modal-pane" stylesheets="@../css/styles.css" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.RemoveProductStockController">
+<AnchorPane prefHeight="500.0" prefWidth="700.0" styleClass="modal-pane" stylesheets="@../css/styles.css" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.RemoveProductStockController" >
     <children>
         <VBox alignment="TOP_CENTER" prefHeight="480.0" prefWidth="680.0" AnchorPane.bottomAnchor="10.0" AnchorPane.leftAnchor="10.0" AnchorPane.rightAnchor="10.0" AnchorPane.topAnchor="10.0">
             <children>
@@ -62,8 +62,8 @@
                         <Insets top="15.0" />
                     </VBox.margin>
                     <children>
-                        <Button mnemonicParsing="false" onAction="#handleCancel" prefWidth="100.0" styleClass="cancel-button" text="Cancelar" />
-                        <Button mnemonicParsing="false" onAction="#handleConfirmDeduction" prefWidth="180.0" styleClass="primary-button" text="Confirmar Eliminación Stock" />
+                        <Button mnemonicParsing="false" onAction="#handleCancel" prefWidth="100.0" styleClass="secondary-action-button" text="Cancelar" />
+                        <Button mnemonicParsing="false" onAction="#handleConfirmDeduction" prefWidth="180.0" styleClass="danger-button" text="Confirmar Eliminación Stock" />
                     </children>
                 </HBox>
             </children>

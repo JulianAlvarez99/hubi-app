@@ -19,10 +19,11 @@
     /* * Variable para el tamaño base.
      * Java la sobrescribirá (ej. 12px, 14px, 16px) según la configuración.
      */
-    -fx-base-font-size: 14px;
+    -fx-base-font-size: 18px;
 
     /* El tamaño de fuente raíz AHORA usa la variable */
-    -fx-font-size: -fx-base-font-size;
+    /*-fx-font-size: -fx-base-font-size;*/
+    -fx-font-size: 14px;
 }
 
 /* --- Estilos del MainView.fxml --- */
@@ -111,6 +112,29 @@
     -fx-background-color: derive(-fx-color-primary, 20%);
 }
 
+.danger-button {
+    -fx-background-color: #d9534f; /* Rojo tomado de .danger-action-button */
+    -fx-text-fill: -fx-color-text-light;
+    -fx-font-weight: bold;
+    -fx-background-radius: 4;
+}
+.danger-button:hover {
+    -fx-background-color: derive(#d9534f, -10%);
+}
+
+.modify-button {
+    -fx-background-color: #F9ADB1; /* Amarillo pastel */
+    -fx-text-fill: -fx-color-text-light; /* Texto oscuro para legibilidad */
+    -fx-font-weight: bold;
+    -fx-background-radius: 4;
+    -fx-border-color: derive(#F9ADB1, -20%); /* Borde ligeramente más oscuro */
+    -fx-border-radius: 4;
+    -fx-border-width: 1px;
+}
+.modify-button:hover {
+    -fx-background-color: derive(#F9ADB1, -10%);
+}
+
 .section-title {
     -fx-font-size: 1.15em; /* 16px / 14px */
     -fx-font-weight: bold;
@@ -135,11 +159,15 @@
     -fx-alignment: center-left; /* Asegurar alineación */
 }
 
+.readonly-textfield {
+    -fx-background-color: -fx-color-bg-medium; /* Fondo medio (gris claro) */
+}
+
 /* Estilo base para los VBox raíz de los modales */
 .modal-dialog {
     -fx-background-color: -fx-color-bg-light; /* Fondo claro */
     -fx-font-family: "Maven Pro";
-    -fx-font-size: 0.93em; /* 13px / 14px */
+    -fx-font-size: 1.2em; /* 13px / 14px */
     -fx-text-fill: -fx-color-text-dark; /* Texto oscuro por defecto */
     -fx-border-color: -fx-color-border; /* Borde sutil opcional */
     -fx-border-width: 1px;
@@ -154,6 +182,12 @@
     -fx-font-weight: bold;
     -fx-font-size: 1.1em; /* Ligeramente más grande */
     -fx-text-fill: -fx-color-primary;
+
+    -fx-background-color: -fx-color-secondary; /*  Usa el color secundario */
+    -fx-background-radius: 5; /* Bordes redondeados */
+    -fx-max-width: Infinity;
+    -fx-padding: 8px 12px;
+    -fx-alignment: center-left;
 }
 
 /* Estilo para los RadioButtons (normal) */

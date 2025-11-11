@@ -9,13 +9,9 @@
 <?import javafx.scene.layout.RowConstraints?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox styleClass="module-container" alignment="TOP_LEFT" spacing="20.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.ConfiguracionController">
-    <padding>
-        <Insets top="20.0" left="20.0" right="20.0" bottom="20.0" />
-    </padding>
+<VBox styleClass="module-container" alignment="TOP_LEFT" spacing="20.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.ConfiguracionController" stylesheets="@../css/styles.css">
     <children>
         <Label styleClass="section-title" text="Configuración de Pantalla" />
-
         <GridPane hgap="10.0" vgap="10.0" maxWidth="500.0">
             <columnConstraints>
                 <ColumnConstraints hgrow="NEVER" minWidth="150.0" />
@@ -23,11 +19,15 @@
             </columnConstraints>
             <rowConstraints>
                 <RowConstraints minHeight="30.0" vgrow="SOMETIMES" />
+                <RowConstraints minHeight="30.0" vgrow="SOMETIMES" />
             </rowConstraints>
 
             <children>
                 <Label text="Resolución de Ventana:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
                 <ComboBox fx:id="cmbResoluciones" prefWidth="200.0" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+                <Label text="Tamaño de Fuente:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                <ComboBox fx:id="cmbFuenteTamanos" prefWidth="200.0" GridPane.columnIndex="1" GridPane.rowIndex="1" />
             </children>
         </GridPane>
 

@@ -21,16 +21,16 @@ public class Main extends Application {
             // Cargar una fuente específica como ejemplo, ajusta según necesites
             Font.loadFont(
                     Objects.requireNonNull(getClass().getResource("/com/calmasalud/hubi/ui/fonts/MavenPro-Regular.ttf")).toExternalForm(),
-                    10 // Tamaño base, la UI lo ajustará
+                    14 // Tamaño base, la UI lo ajustará
             );
             Font.loadFont(
-                    Objects.requireNonNull(getClass().getResource("/com/calmasalud/hubi/ui/fonts/MavenPro-Medium.ttf")).toExternalForm(), 10
+                    Objects.requireNonNull(getClass().getResource("/com/calmasalud/hubi/ui/fonts/MavenPro-Medium.ttf")).toExternalForm(), 14
             );
             Font.loadFont(
-                    Objects.requireNonNull(getClass().getResource("/com/calmasalud/hubi/ui/fonts/MavenPro-SemiBold.ttf")).toExternalForm(), 10
+                    Objects.requireNonNull(getClass().getResource("/com/calmasalud/hubi/ui/fonts/MavenPro-SemiBold.ttf")).toExternalForm(), 14
             );
             Font.loadFont(
-                    Objects.requireNonNull(getClass().getResource("/com/calmasalud/hubi/ui/fonts/MavenPro-Bold.ttf")).toExternalForm(), 10
+                    Objects.requireNonNull(getClass().getResource("/com/calmasalud/hubi/ui/fonts/MavenPro-Bold.ttf")).toExternalForm(), 14
             );
             // Añade más cargas si usas otros pesos de Maven Pro
         } catch (Exception e) {
@@ -64,7 +64,8 @@ public class Main extends Application {
 
         // --- APLICAR TAMAÑO FUENTE BASE AL NODO RAÍZ ANTES DE MOSTRAR ---
         if (scene.getRoot() != null) {
-            scene.getRoot().setStyle(String.format("-fx-base-font-size: %.2fpx;", baseFontSize));
+            String style = String.format(".root { -fx-font-size: %.2fpx; }", baseFontSize);
+            scene.getRoot().setStyle(style);
         }
         // ----------------------------------------------------------------
 

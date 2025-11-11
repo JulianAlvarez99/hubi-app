@@ -78,7 +78,7 @@ public class CatalogService {
 
     /**
      * Copia un archivo origen al directorio base del repositorio.
-     * (Método original, no modificado)
+     *
      */
     public File copiarArchivoARepositorio(File archivoOrigen) throws IOException {
         if (archivoOrigen == null || !archivoOrigen.isFile()) {

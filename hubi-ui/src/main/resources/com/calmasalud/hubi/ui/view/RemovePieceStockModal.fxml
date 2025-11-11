@@ -9,7 +9,7 @@
 <?import javafx.scene.layout.VBox?>
 
 <?import javafx.scene.control.TextField?>
-<VBox minHeight="300.0" minWidth="450.0" spacing="15.0" styleClass="modal-dialog" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.RemovePieceStockController">
+<VBox minHeight="300.0" minWidth="450.0" spacing="15.0" styleClass="modal-dialog" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.RemovePieceStockController" stylesheets="@../css/styles.css">
     <padding>
         <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
     </padding>
@@ -40,7 +40,7 @@
 
         <HBox alignment="CENTER_RIGHT" spacing="10.0" VBox.vgrow="ALWAYS">
             <Button styleClass="secondary-action-button" text="CANCELAR" onAction="#handleCancel" cancelButton="true"/>
-            <Button styleClass="action-button" text="REGISTRAR ELIMINACIÓN" onAction="#handleConfirmRemoval" defaultButton="true"/>
+            <Button styleClass="danger-button" text="REGISTRAR ELIMINACIÓN" onAction="#handleConfirmRemoval" defaultButton="true"/>
         </HBox>
     </children>
 </VBox>

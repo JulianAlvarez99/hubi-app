@@ -79,7 +79,7 @@ public class MasterProductRepositorySQLite implements IMasterProductRepository {
         }
     }
 
-    // --- MÉTODO DE ESCRITURA (Implementación que satisface a la interfaz) ---
+    // --- ¿ ESCRITURA (Implementación que satisface a la interfaz) ---
     // Usamos el nombre 'save(MasterProduct)' si es el que te está pidiendo el compilador.
     // También conservo 'saveNewProduct' para el caso de que la interfaz lo use.
 
@@ -115,7 +115,7 @@ public class MasterProductRepositorySQLite implements IMasterProductRepository {
             return 1L; // Éxito
 
         } catch (SQLException e) {
-            System.err.println("❌ Error al guardar Producto Maestro/Stock: " + e.getMessage());
+            System.err.println(" Error al guardar Producto Maestro/Stock: " + e.getMessage());
             if (conn != null) {
                 try { conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
             }
@@ -152,7 +152,7 @@ public class MasterProductRepositorySQLite implements IMasterProductRepository {
             pstmt.executeUpdate();
 
         } catch (SQLException e) {
-            System.err.println("❌ Error al modificar stock final: " + e.getMessage());
+            System.err.println(" Error al modificar stock final: " + e.getMessage());
             throw new RuntimeException("Fallo en la persistencia del stock.", e);
         }
     }

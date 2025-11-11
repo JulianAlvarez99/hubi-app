@@ -11,7 +11,7 @@ public interface IMasterProductRepository {
      * @param productName Nombre del producto.
      * @return El prefijo de 3 letras en mayúsculas (Ej: SOP).
      */
-    String getPrefixFromName(String productName); // <-- ¡ESTE MÉTODO ES EL QUE FALTABA!
+    String getPrefixFromName(String productName);
 
     /**
      * Genera el siguiente Código Maestro único (Ej: SOP01) para el producto finalizado (RF8).
@@ -27,7 +27,7 @@ public interface IMasterProductRepository {
     long saveNewProduct(MasterProduct product, double initialPrice);
 
     /**
-     * Método requerido por el compilador para el contrato base de repositorio (si existe).
+     *  requerido por el compilador para el contrato base de repositorio (si existe).
      * Delega la llamada a saveNewProduct con precio inicial 0.0.
      */
     long save(MasterProduct product);
