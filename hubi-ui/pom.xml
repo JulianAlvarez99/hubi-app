@@ -96,15 +96,33 @@
                     <vendor>Calma Salud</vendor>
 
                     <mainclass>com.calmasalud.hubi.ui.Main</mainclass>
-                    <mainjar>hubi-ui-1.0-SNAPSHOT-jar-with-dependencies.jar</mainjar>
+                    <mainjar>${project.build.finalName}-jar-with-dependencies.jar</mainjar>
 
                     <addmodules>
                         <module>javafx.controls</module>
                         <module>javafx.fxml</module>
                     </addmodules>
 
-                    <type>APP_IMAGE</type>
+                    <type>msi</type>
+
+                    <arguments>
+                        <argument>--win-menu</argument>
+                        <argument>--win-shortcut</argument>
+                        <argument>--win-upgrade-uuid</argument>
+<!--                        https://www.uuidgenerator.net/-->
+                        <argument>6c58f60c-a7ee-4e64-bb31-45839c991944</argument> </arguments>
+
                 </configuration>
+
+                <executions>
+                    <execution>
+                        <id>jpackage</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jpackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
