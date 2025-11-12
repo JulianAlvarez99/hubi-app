@@ -20,13 +20,13 @@ jobs:
           java-version: '24'
           distribution: 'temurin'
 
-      # --- ¡AQUÍ ESTÁ LA CORRECCIÓN DEFINITIVA! ---
-      # Establecemos la versión como una variable de entorno ANTES de ejecutar el comando.
-      # El shell (pwsh) luego expandirá $env:RELEASE_VERSION como una sola cadena.
+      # --- ¡AQUÍ ESTÁ LA CORRECCIÓN! ---
+      # Añadimos comillas dobles a "$env:RELEASE_VERSION"
+      # Esto le dice a PowerShell que expanda la variable a su valor (ej. "v0.1.7")
       - name: 3. Set Project Version to Release Tag
         env:
           RELEASE_VERSION: ${{ github.ref_name }}
-        run: mvn versions:set -DnewVersion=$env:RELEASE_VERSION
+        run: mvn versions:set -DnewVersion="$env:RELEASE_VERSION"
         shell: pwsh
 
       # El resto del pipeline sigue igual
