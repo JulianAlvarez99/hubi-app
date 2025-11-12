@@ -20,15 +20,14 @@ jobs:
           java-version: '24'
           distribution: 'temurin'
 
-      - name: 3. Install WiX Toolset v3
-        run: choco install wixtoolset --version 3.11.2 --no-progress
-        shell: pwsh
+      # --- HEMOS ELIMINADO EL PASO DE INSTALAR WIX ---
+      # La máquina virtual ya lo tiene.
 
-      - name: 4. Build with Maven (using Release Tag as version)
+      - name: 3. Build with Maven (using Release Tag as version)
         run: mvn -B package -Dproject.version=${{ github.ref_name }}
         shell: pwsh
 
-      - name: 5. Find Installer
+      - name: 4. Find Installer
         id: find_msi
         run: |
           $msiPath = (Get-ChildItem -Path . -Recurse -Filter "*.msi" | Select-Object -First 1).FullName
@@ -36,8 +35,7 @@ jobs:
           echo "msi_name=$(Split-Path $msiPath -Leaf)" >> $env:GITHUB_OUTPUT
         shell: pwsh
 
-      # --- ¡AQUÍ ESTÁ LA ACCIÓN CORRECTA! ---
-      - name: 6. Upload Release Asset (.msi)
+      - name: 5. Upload Release Asset (.msi)
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ github.event.release.upload_url }}
