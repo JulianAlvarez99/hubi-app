@@ -27,14 +27,15 @@ jobs:
         run: choco install wixtoolset --version 3.11.2 --no-progress
         shell: pwsh
 
-      # 4. Construye con Maven (¡EL CAMBIO CLAVE!)
+      # 4. Construye con Maven (¡El paso de Maven!)
       #    Ejecuta 'mvn package' y pasa la versión desde el Tag de la Release
+      #    -Dproject.version=... es el nuevo nombre para la versión
       - name: 4. Build with Maven (using Release Tag as version)
         run: mvn -B package -Dproject.version=${{ github.ref_name }}
         shell: pwsh
 
       # 5. Busca el instalador .msi resultante
-      #    (El plugin de jpackage para Maven lo deja en una ruta como hubi-ui/target/jpackage/HubiApp/HubiApp-0.1.0.msi)
+      #    (El plugin de jpackage para Maven lo deja en hubi-ui/target/jpackage/Sistema HUBI/)
       - name: 5. Find Installer
         id: find_msi
         run: |
@@ -43,8 +44,8 @@ jobs:
           echo "msi_name=$(Split-Path $msiPath -Leaf)" >> $env:GITHUB_OUTPUT
         shell: pwsh
 
-      # 6. Sube el .msi a la Release (Usando la acción OFICIAL de GitHub)
-      #    Esto corrige el error 'svenstaro/upload-release-asset'
+      # 6. Sube el .msi a la Release (¡LA ACCIÓN CORRECTA!)
+      #    Esta es la acción oficial de GitHub y reemplaza a 'svenstaro'
       - name: 6. Upload Release Asset (.msi)
         uses: actions/upload-release-asset@v1
         with:
