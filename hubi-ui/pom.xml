@@ -96,6 +96,7 @@
                     <vendor>Calma Salud</vendor>
 
                     <mainclass>com.calmasalud.hubi.ui.Main</mainclass>
+
                     <mainjar>${project.build.finalName}-jar-with-dependencies.jar</mainjar>
 
                     <addmodules>
@@ -105,12 +106,7 @@
 
                     <type>msi</type>
 
-                    <arguments>
-                        <argument>--win-menu</argument>
-                        <argument>--win-shortcut</argument>
-                        <argument>--win-upgrade-uuid</argument>
-<!--                        https://www.uuidgenerator.net/-->
-                        <argument>6c58f60c-a7ee-4e64-bb31-45839c991944</argument> </arguments>
+                    <arguments>--win-menu --win-shortcut --win-upgrade-uuid 6c58f60c-a7ee-4e64-bb31-45839c991944</arguments>
 
                 </configuration>
 
