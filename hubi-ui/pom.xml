@@ -104,7 +104,7 @@
                         <module>javafx.fxml</module>
                     </addmodules>
 
-                    <type>msi</type>
+                    <type>MSI</type>
 
                     <arguments>--win-menu --win-shortcut --win-upgrade-uuid 6c58f60c-a7ee-4e64-bb31-45839c991944</arguments>
 
