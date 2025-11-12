@@ -20,18 +20,16 @@ jobs:
           java-version: '24'
           distribution: 'temurin'
 
-      # --- CAMBIO AQUÍ ---
-      # Nuevo Paso 3: Cambia la versión en todos los pom.xml al número del Tag
+      # Añadimos comillas para que el shell trate (ej. "v0.1.4") como una sola cadena
       - name: 3. Set Project Version to Release Tag
-        run: mvn versions:set -DnewVersion=${{ github.ref_name }}
+        run: mvn versions:set -DnewVersion="${{ github.ref_name }}"
         shell: pwsh
 
-      # Nuevo Paso 4: Compila el proyecto (ahora usa la nueva versión)
+      # El resto del pipeline sigue igual
       - name: 4. Build with Maven
         run: mvn -B package
         shell: pwsh
 
-      # El resto de los pasos se re-numeran
       - name: 5. Find Installer
         id: find_msi
         run: |
