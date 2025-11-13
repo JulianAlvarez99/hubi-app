@@ -44,8 +44,8 @@
         <dependency>
             <groupId>org.interactivemesh</groupId>
             <artifactId>jfx3dimporter</artifactId>
-            <version>1.0</version> <scope>system</scope>
-
+            <version>1.0</version>
+            <scope>system</scope>
             <systemPath>${project.basedir}/../libs/jimStlMeshImporterJFX.jar</systemPath>
         </dependency>
 
@@ -87,39 +87,6 @@
                 </executions>
             </plugin>
 
-            <plugin>
-                <groupId>com.github.akman</groupId>
-                <artifactId>jpackage-maven-plugin</artifactId>
-                <version>0.1.5</version>
-                <configuration>
-                    <name>Sistema HUBI</name>
-                    <vendor>Calma Salud</vendor>
-
-                    <mainclass>com.calmasalud.hubi.ui.Main</mainclass>
-
-                    <mainjar>${project.build.finalName}-jar-with-dependencies.jar</mainjar>
-
-                    <addmodules>
-                        <module>javafx.controls</module>
-                        <module>javafx.fxml</module>
-                    </addmodules>
-
-                    <type>MSI</type>
-
-                    <arguments>--win-menu --win-shortcut --win-upgrade-uuid 6c58f60c-a7ee-4e64-bb31-45839c991944</arguments>
-
-                </configuration>
-
-                <executions>
-                    <execution>
-                        <id>jpackage</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>jpackage</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
     </build>
 
