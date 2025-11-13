@@ -4,6 +4,10 @@ target/
 !**/src/test/**/target/
 
 ### IntelliJ IDEA ###
+# Ignorar todos los JARs
+*.jar
+# ¡PERO no ignorar la librería de libs!
+!/libs/jimStlMeshImporterJFX.jar
 .idea/modules.xml
 .idea/jarRepositories.xml
 .idea/compiler.xml
