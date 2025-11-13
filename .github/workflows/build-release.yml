@@ -27,21 +27,15 @@ jobs:
         shell: pwsh
 
       - name: 4. Build with Maven
-        # Este comando ahora creará el 'jar-delgado' Y la carpeta 'hubi-ui/target/libs'
         run: mvn -B package
         shell: pwsh
 
-      # --- ¡PASO 5 CORREGIDO! ---
       - name: 5. Create Installer with jpackage
         env:
           RELEASE_VERSION: ${{ github.ref_name }}
         run: |
           $rawVersion = $env:RELEASE_VERSION
           $cleanVersion = $rawVersion.TrimStart('v')
-          
-          # Definimos el path a los módulos. Usamos ';' como separador en Windows.
-          # 1. La carpeta 'libs' que Maven acaba de crear.
-          # 2. La carpeta 'libs' en la raíz del proyecto para el JAR de sistema.
           $modulePath = "hubi-ui/target/libs;libs"
           
           Write-Host "Usando Module Path: $modulePath"
@@ -62,7 +56,6 @@ jobs:
             --win-upgrade-uuid "6c58f60c-a7ee-4e64-bb31-45839c991944"
         shell: pwsh
 
-      # --- (Paso 6 sin cambios) ---
       - name: 6. Find Installer
         id: find_msi
         run: |
@@ -71,7 +64,7 @@ jobs:
           echo "msi_name=$(Split-Path $msiPath -Leaf)" >> $env:GITHUB_OUTPUT
         shell: pwsh
 
-      # --- (Paso 7 sin cambios) ---
+      # --- ¡PASO 7 CORREGIDO! ---
       - name: 7. Upload Release Asset (.msi)
         uses: actions/upload-release-asset@v1
         with:
@@ -79,4 +72,7 @@ jobs:
           asset_path: ${{ steps.find_msi.outputs.msi_path }}
           asset_name: ${{ steps.find_msi.outputs.msi_name }}
           asset_content_type: application/x-msi
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # La línea 'token:' se eliminó de aquí
+        env:
+          # Y se movió aquí, con el nombre correcto 'GITHUB_TOKEN'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
