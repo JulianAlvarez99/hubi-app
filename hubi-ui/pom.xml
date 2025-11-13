@@ -76,6 +76,8 @@
                         <configuration>
                             <outputDirectory>${project.build.directory}/libs</outputDirectory>
                             <includeScope>runtime</includeScope>
+                            <stripVersion>true</stripVersion>
+                            <stripClassifier>true</stripClassifier>
                         </configuration>
                     </execution>
                 </executions>
