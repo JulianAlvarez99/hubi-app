@@ -30,7 +30,7 @@ jobs:
         run: mvn -B package
         shell: pwsh
 
-      # --- ¡NUEVO PASO AÑADIDO! ---
+      # --- ¡PASO 5 CORREGIDO! ---
       - name: 5. Create Installer with jpackage
         env:
           RELEASE_VERSION: ${{ github.ref_name }}
@@ -38,20 +38,21 @@ jobs:
           jpackage `
             --type msi `
             --dest ./hubi-ui/target/jpackage `
+            --input ./hubi-ui/target/ `
             --name "Sistema HUBI" `
             --vendor "Calma Salud" `
             --app-version $env:RELEASE_VERSION `
             --main-class com.calmasalud.hubi.ui.Main `
-            --main-jar ./hubi-ui/target/hubi-ui-$env:RELEASE_VERSION-jar-with-dependencies.jar `
+            --main-jar hubi-ui-$env:RELEASE_VERSION-jar-with-dependencies.jar `
             --add-modules javafx.controls,javafx.fxml `
             --win-menu `
             --win-shortcut `
             --win-upgrade-uuid "6c58f60c-a7ee-4e64-bb31-45839c991944"
         shell: pwsh
 
-      # --- PASO ACTUALIZADO Y RE-NUMERADO ---
+      # --- (Paso 6 sin cambios) ---
       - name: 6. Find Installer
-        id: find_msi
+        id: find_m
         run: |
           # Busca el .msi solo en la carpeta de salida de jpackage
           $msiPath = (Get-ChildItem -Path ./hubi-ui/target/jpackage -Recurse -Filter "*.msi" | Select-Object -First 1).FullName
@@ -59,12 +60,12 @@ jobs:
           echo "msi_name=$(Split-Path $msiPath -Leaf)" >> $env:GITHUB_OUTPUT
         shell: pwsh
 
-      # --- PASO RE-NUMERADO ---
+      # --- (Paso 7 sin cambios) ---
       - name: 7. Upload Release Asset (.msi)
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ${{ steps.find_msi.outputs.msi_path }}
-          asset_name: ${{ steps.find_msi.outputs.msi_name }}
+          asset_path: ${{ steps.find_m.outputs.msi_path }}
+          asset_name: ${{ steps.find_m.outputs.msi_name }}
           asset_content_type: application/x-msi
           token: ${{ secrets.GITHUB_TOKEN }}
