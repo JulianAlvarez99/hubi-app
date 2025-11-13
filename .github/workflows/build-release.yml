@@ -10,6 +10,11 @@ jobs:
   build-and-release:
     runs-on: windows-latest
 
+    # --- ¡AQUÍ ESTÁ LA CORRECCIÓN! ---
+    # Le damos al token permiso para escribir en los "contents" (los releases).
+    permissions:
+      contents: write
+
     steps:
       - name: 1. Checkout repository
         uses: actions/checkout@v4
@@ -64,7 +69,7 @@ jobs:
           echo "msi_name=$(Split-Path $msiPath -Leaf)" >> $env:GITHUB_OUTPUT
         shell: pwsh
 
-      # --- ¡PASO 7 CORREGIDO! ---
+      # --- (Este paso ya estaba bien, solo necesitaba los permisos de arriba) ---
       - name: 7. Upload Release Asset (.msi)
         uses: actions/upload-release-asset@v1
         with:
@@ -72,7 +77,5 @@ jobs:
           asset_path: ${{ steps.find_msi.outputs.msi_path }}
           asset_name: ${{ steps.find_msi.outputs.msi_name }}
           asset_content_type: application/x-msi
-          # La línea 'token:' se eliminó de aquí
         env:
-          # Y se movió aquí, con el nombre correcto 'GITHUB_TOKEN'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
