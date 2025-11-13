@@ -35,15 +35,25 @@ jobs:
         env:
           RELEASE_VERSION: ${{ github.ref_name }}
         run: |
+          # Obtenemos la versión "raw" (ej: v0.1.0)
+          $rawVersion = $env:RELEASE_VERSION
+          
+          # Creamos una versión "limpia" sin la 'v' (ej: 0.1.0)
+          $cleanVersion = $rawVersion.TrimStart('v')
+
+          # Depuración (opcional, pero útil)
+          Write-Host "Raw version (para el JAR): $rawVersion"
+          Write-Host "Clean version (para el MSI): $cleanVersion"
+
           jpackage `
             --type msi `
             --dest ./hubi-ui/target/jpackage `
             --input ./hubi-ui/target/ `
             --name "Sistema HUBI" `
             --vendor "Calma Salud" `
-            --app-version $env:RELEASE_VERSION `
+            --app-version $cleanVersion `
             --main-class com.calmasalud.hubi.ui.Main `
-            --main-jar hubi-ui-$env:RELEASE_VERSION-jar-with-dependencies.jar `
+            --main-jar hubi-ui-$rawVersion-jar-with-dependencies.jar `
             --add-modules javafx.controls,javafx.fxml `
             --win-menu `
             --win-shortcut `
@@ -52,7 +62,7 @@ jobs:
 
       # --- (Paso 6 sin cambios) ---
       - name: 6. Find Installer
-        id: find_m
+        id: find_msi
         run: |
           # Busca el .msi solo en la carpeta de salida de jpackage
           $msiPath = (Get-ChildItem -Path ./hubi-ui/target/jpackage -Recurse -Filter "*.msi" | Select-Object -First 1).FullName
@@ -65,7 +75,7 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ${{ steps.find_m.outputs.msi_path }}
-          asset_name: ${{ steps.find_m.outputs.msi_name }}
+          asset_path: ${{ steps.find_msi.outputs.msi_path }}
+          asset_name: ${{ steps.find_msi.outputs.msi_name }}
           asset_content_type: application/x-msi
           token: ${{ secrets.GITHUB_TOKEN }}
