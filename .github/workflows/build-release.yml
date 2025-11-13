@@ -27,6 +27,7 @@ jobs:
         shell: pwsh
 
       - name: 4. Build with Maven
+        # Este comando ahora creará el 'jar-delgado' Y la carpeta 'hubi-ui/target/libs'
         run: mvn -B package
         shell: pwsh
 
@@ -35,15 +36,15 @@ jobs:
         env:
           RELEASE_VERSION: ${{ github.ref_name }}
         run: |
-          # Obtenemos la versión "raw" (ej: v0.1.0)
           $rawVersion = $env:RELEASE_VERSION
-          
-          # Creamos una versión "limpia" sin la 'v' (ej: 0.1.0)
           $cleanVersion = $rawVersion.TrimStart('v')
-
-          # Depuración (opcional, pero útil)
-          Write-Host "Raw version (para el JAR): $rawVersion"
-          Write-Host "Clean version (para el MSI): $cleanVersion"
+          
+          # Definimos el path a los módulos. Usamos ';' como separador en Windows.
+          # 1. La carpeta 'libs' que Maven acaba de crear.
+          # 2. La carpeta 'libs' en la raíz del proyecto para el JAR de sistema.
+          $modulePath = "hubi-ui/target/libs;libs"
+          
+          Write-Host "Usando Module Path: $modulePath"
 
           jpackage `
             --type msi `
@@ -53,7 +54,8 @@ jobs:
             --vendor "Calma Salud" `
             --app-version $cleanVersion `
             --main-class com.calmasalud.hubi.ui.Main `
-            --main-jar hubi-ui-$rawVersion-jar-with-dependencies.jar `
+            --module-path $modulePath `
+            --main-jar hubi-ui-$rawVersion.jar `
             --add-modules javafx.controls,javafx.fxml `
             --win-menu `
             --win-shortcut `
@@ -64,7 +66,6 @@ jobs:
       - name: 6. Find Installer
         id: find_msi
         run: |
-          # Busca el .msi solo en la carpeta de salida de jpackage
           $msiPath = (Get-ChildItem -Path ./hubi-ui/target/jpackage -Recurse -Filter "*.msi" | Select-Object -First 1).FullName
           echo "msi_path=$msiPath" >> $env:GITHUB_OUTPUT
           echo "msi_name=$(Split-Path $msiPath -Leaf)" >> $env:GITHUB_OUTPUT
