@@ -51,8 +51,8 @@ import javafx.scene.Group;
 import javafx.scene.PerspectiveCamera;
 import javafx.scene.SceneAntialiasing;
 import javafx.scene.AmbientLight;
-
-
+import com.calmasalud.hubi.core.repository.ISupplyRepository;
+import com.calmasalud.hubi.persistence.repository.SupplyRepositorySQLite;
 public class CatalogManagerController {
 
     // --- CONSTANTE DE COSTO POR DEFECTO ---
@@ -60,13 +60,20 @@ public class CatalogManagerController {
 
     private final IProductRepository productSqliteRepository = new ProductRepositorySQLite();
     private final IMasterProductRepository masterProductRepository = new MasterProductRepositorySQLite();
-
-
     private final IProductCompositionRepository productCompositionRepository = new ProductCompositionRepositorySQLite();
 
 
-    private final CatalogService catalogoService = new CatalogService(productSqliteRepository, masterProductRepository, productCompositionRepository);
+    private final ISupplyRepository supplyRepository = new SupplyRepositorySQLite();
 
+
+    private final CatalogService catalogoService = new CatalogService(
+            // 🚨 FIX: Se pasa el cuarto argumento, manteniendo el orden de la firma:
+            // (IProductRepository, IMasterProductRepository, IProductCompositionRepository, ISupplyRepository)
+            productSqliteRepository,
+            masterProductRepository,
+            productCompositionRepository,
+            supplyRepository
+    );
     private final FileParameterExtractor extractor = new FileParameterExtractor();
 
     // Variables para guardar la posición del mouse al hacer clic

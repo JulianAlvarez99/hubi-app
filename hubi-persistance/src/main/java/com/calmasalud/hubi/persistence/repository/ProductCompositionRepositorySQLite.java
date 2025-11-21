@@ -8,19 +8,56 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ProductCompositionRepositorySQLite implements IProductCompositionRepository {
 
-    @Override
+    private final SQLiteManager sqLiteManager;
+    private static final String DB_NAME = "hubi_catalog.db";
+
+    // Constructor para inyección de dependencia (usado en Main.java)
+    public ProductCompositionRepositorySQLite(SQLiteManager sqLiteManager) {
+        this.sqLiteManager = sqLiteManager;
+        initializeTable();
+    }
+
+    // Constructor sin argumentos (usado en TipoCargaController.java y otros)
+    public ProductCompositionRepositorySQLite() {
+        // Llama al constructor que creamos en SQLiteManager, el cual ahora acepta el String
+        this.sqLiteManager = new SQLiteManager(DB_NAME);
+        initializeTable();
+    }
+
+    // 🚨 CORRECCIÓN: Método privado sin @Override
+    private void initializeTable() {
+        // Definición de la tabla composition de SQLiteManager
+        String sql = "CREATE TABLE IF NOT EXISTS product_composition ("
+                + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + "master_code TEXT NOT NULL,"
+                + "piece_name_base TEXT NOT NULL,"
+                + "required_quantity INTEGER NOT NULL DEFAULT 1,"
+                + "UNIQUE (master_code, piece_name_base),"
+                + "FOREIGN KEY (master_code) REFERENCES master_products(master_code) ON DELETE CASCADE"
+                + ");";
+
+        try (Connection conn = sqLiteManager.getConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
+        } catch (SQLException e) {
+            System.err.println("Error al inicializar la tabla 'product_composition': " + e.getMessage());
+        }
+    }
+
+    // Este método no implementa una interfaz, por lo que no lleva @Override
     public void saveComposition(String masterCode, List<ProductComposition> composition) {
-        Connection conn = null;
         // master_code, piece_name_base, required_quantity
         String sql = "INSERT INTO product_composition (master_code, piece_name_base, required_quantity) VALUES (?, ?, ?)";
 
+        Connection conn = null; // 🚨 Declarada fuera para manejo de transacción
         try {
-            conn = SQLiteManager.getConnection();
+            conn = sqLiteManager.getConnection();
             conn.setAutoCommit(false); // Iniciar transacción (RF6)
 
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -39,6 +76,7 @@ public class ProductCompositionRepositorySQLite implements IProductCompositionRe
             if (conn != null) {
                 try { conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
             }
+            // Lanzo una excepción Runtime para que la capa de servicio pueda manejarla
             throw new RuntimeException("Fallo al guardar la composición del producto.", e);
         } finally {
             if (conn != null) {
@@ -53,9 +91,9 @@ public class ProductCompositionRepositorySQLite implements IProductCompositionRe
     @Override
     public List<ProductComposition> getComposition(String masterCode) {
         List<ProductComposition> composition = new ArrayList<>();
-        String sql = "SELECT piece_name_base, required_quantity FROM product_composition WHERE master_code = ?";
+        String sql = "SELECT master_code, piece_name_base, required_quantity FROM product_composition WHERE master_code = ?"; // Agregué master_code al select
 
-        try (Connection conn = SQLiteManager.getConnection();
+        try (Connection conn = sqLiteManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, masterCode);
@@ -63,7 +101,7 @@ public class ProductCompositionRepositorySQLite implements IProductCompositionRe
 
             while (rs.next()) {
                 composition.add(new ProductComposition(
-                        masterCode,
+                        rs.getString("master_code"), // Usamos la columna real si es necesario, o el masterCode pasado
                         rs.getString("piece_name_base"),
                         rs.getInt("required_quantity")
                 ));
@@ -77,7 +115,7 @@ public class ProductCompositionRepositorySQLite implements IProductCompositionRe
     @Override
     public boolean compositionExists(String masterCode) {
         String sql = "SELECT COUNT(*) FROM product_composition WHERE master_code = ?";
-        try (Connection conn = SQLiteManager.getConnection();
+        try (Connection conn = sqLiteManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, masterCode);

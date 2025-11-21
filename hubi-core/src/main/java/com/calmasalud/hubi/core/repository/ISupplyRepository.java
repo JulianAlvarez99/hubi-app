@@ -8,4 +8,5 @@ public interface ISupplyRepository {
     void delete(long id);
     Supply findByID(long id);
     List<Supply> listAll();
+    String getNextCorrelativeCode(String colorName, String tipoFilamento);
 }

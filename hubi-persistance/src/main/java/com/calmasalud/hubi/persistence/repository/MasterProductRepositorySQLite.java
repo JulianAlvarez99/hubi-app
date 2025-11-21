@@ -1,6 +1,5 @@
 package com.calmasalud.hubi.persistence.repository;
 
-
 import com.calmasalud.hubi.core.model.MasterProduct;
 import com.calmasalud.hubi.core.model.MasterProductView;
 import com.calmasalud.hubi.core.repository.IMasterProductRepository;
@@ -15,8 +14,22 @@ import java.util.Locale;
 
 public class MasterProductRepositorySQLite implements IMasterProductRepository {
 
-    // --- Lógica del Repositorio de Piezas (IProductRepository) ---
-    // NOTA: Esta lógica debería estar en CatalogService, pero se mantiene aquí para conveniencia del flujo.
+    // CAMPOS DE INSTANCIA
+    private final SQLiteManager sqLiteManager;
+    private static final String DB_NAME = "hubi_catalog.db";
+
+    // Constructor 1: Con inyección de dependencia (para Main.java)
+    public MasterProductRepositorySQLite(SQLiteManager sqLiteManager) {
+        this.sqLiteManager = sqLiteManager;
+    }
+
+    // 🚨 FIX: Constructor 2: Sin argumentos (Para uso en controladores)
+    public MasterProductRepositorySQLite() {
+        // Inicializa el SQLiteManager internamente.
+        this.sqLiteManager = new SQLiteManager(DB_NAME);
+    }
+
+    // --- Lógica de Correlativo Maestro (RF8) ---
     @Override
     public String getPrefixFromName(String productName) {
         if (productName == null || productName.trim().length() < 3) {
@@ -25,7 +38,6 @@ public class MasterProductRepositorySQLite implements IMasterProductRepository {
         return productName.trim().substring(0, 3).toUpperCase(Locale.ROOT);
     }
 
-    // --- Lógica de Correlativo Maestro (RF8) ---
     @Override
     public String getNextMasterCode(String masterPrefix) {
         Connection conn = null;
@@ -33,7 +45,7 @@ public class MasterProductRepositorySQLite implements IMasterProductRepository {
         String prefix = masterPrefix.toUpperCase(Locale.ROOT);
 
         try {
-            conn = SQLiteManager.getConnection();
+            conn = sqLiteManager.getConnection();
             conn.setAutoCommit(false);
 
             String selectSql = "SELECT last_number FROM master_correlatives WHERE master_prefix = ?";
@@ -79,20 +91,15 @@ public class MasterProductRepositorySQLite implements IMasterProductRepository {
         }
     }
 
-    // --- ¿ ESCRITURA (Implementación que satisface a la interfaz) ---
-    // Usamos el nombre 'save(MasterProduct)' si es el que te está pidiendo el compilador.
-    // También conservo 'saveNewProduct' para el caso de que la interfaz lo use.
-
     @Override
     public long saveNewProduct(MasterProduct product, double initialPrice) {
         Connection conn = null;
 
-        // Sentencias SQL para insertar en las dos tablas (master_products y finished_products_stock)
         String sqlInsertMaster = "INSERT INTO master_products (master_code, product_prefix, product_name, description) VALUES (?, ?, ?, ?)";
         String sqlInsertStock = "INSERT INTO finished_products_stock (master_code, quantity_available, price) VALUES (?, 0, ?)";
 
         try {
-            conn = SQLiteManager.getConnection();
+            conn = sqLiteManager.getConnection();
             conn.setAutoCommit(false); // Iniciar transacción (RF6)
 
             // 1. Insertar el Producto Maestro
@@ -130,9 +137,6 @@ public class MasterProductRepositorySQLite implements IMasterProductRepository {
         }
     }
 
-    // Si la interfaz requiere 'save(MasterProduct)', debes agregarlo y delegar:
-    // **NOTA:** ESTO RESUELVE EL ERROR DE LA IMAGEN.
-    // Asume un precio inicial de 0.0 para el stock.
     @Override
     public long save(MasterProduct product) {
         return saveNewProduct(product, 0.0);
@@ -144,7 +148,7 @@ public class MasterProductRepositorySQLite implements IMasterProductRepository {
     public void increaseStock(String masterCode, int quantity) {
         String sql = "UPDATE finished_products_stock SET quantity_available = quantity_available + ? WHERE master_code = ?";
 
-        try (Connection conn = SQLiteManager.getConnection();
+        try (Connection conn = sqLiteManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setInt(1, quantity);
@@ -167,18 +171,16 @@ public class MasterProductRepositorySQLite implements IMasterProductRepository {
     public List<MasterProduct> findAll() {
         List<MasterProduct> products = new ArrayList<>();
 
-        // Consulta SQL que une MasterProducts con FinishedStock
         String sql = "SELECT m.master_code, m.product_prefix, m.product_name, m.description, "
                 + "s.quantity_available, s.price "
                 + "FROM master_products m "
                 + "JOIN finished_products_stock s ON m.master_code = s.master_code";
 
-        try (Connection conn = SQLiteManager.getConnection();
+        try (Connection conn = sqLiteManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
 
             while (rs.next()) {
-                // Creamos una instancia de MasterProductView con todos los datos
                 MasterProductView product = new MasterProductView(
                         rs.getString("master_code"),
                         rs.getString("product_prefix"),
@@ -192,9 +194,7 @@ public class MasterProductRepositorySQLite implements IMasterProductRepository {
 
         } catch (SQLException e) {
             System.err.println("❌ Error al listar productos maestros con stock: " + e.getMessage());
-            // En un caso real, podrías registrar la excepción.
         }
-        // Devolvemos la lista, que en realidad contiene objetos MasterProductView, que es válido ya que es un subtipo.
         return products;
     }
     @Override
@@ -204,7 +204,7 @@ public class MasterProductRepositorySQLite implements IMasterProductRepository {
         String sqlDeleteMaster = "DELETE FROM master_products WHERE master_code = ?";
 
         try {
-            conn = SQLiteManager.getConnection();
+            conn = sqLiteManager.getConnection();
             conn.setAutoCommit(false); // Iniciar transacción (RF6)
 
             // 1. Eliminar el registro de Stock
@@ -241,22 +241,21 @@ public class MasterProductRepositorySQLite implements IMasterProductRepository {
         String sql = "SELECT master_code, product_prefix, product_name, description FROM master_products WHERE product_name = ?";
         MasterProduct product = null;
 
-        try (java.sql.Connection conn = com.calmasalud.hubi.persistence.db.SQLiteManager.getConnection();
-             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (Connection conn = sqLiteManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, productName.trim());
-            java.sql.ResultSet rs = pstmt.executeQuery();
+            ResultSet rs = pstmt.executeQuery();
 
             if (rs.next()) {
-                // Creamos e inicializamos el objeto MasterProduct
-                product = new com.calmasalud.hubi.core.model.MasterProduct(
+                product = new MasterProduct(
                         rs.getString("master_code"),
                         rs.getString("product_prefix"),
                         rs.getString("product_name"),
                         rs.getString("description")
                 );
             }
-        } catch (java.sql.SQLException e) {
+        } catch (SQLException e) {
             System.err.println("❌ Error al buscar producto maestro por nombre: " + e.getMessage());
         }
         return product;
@@ -266,10 +265,9 @@ public class MasterProductRepositorySQLite implements IMasterProductRepository {
         String sql = "SELECT master_code, product_prefix, product_name, description FROM master_products WHERE product_prefix = ?";
         MasterProduct product = null;
 
-        try (Connection conn = SQLiteManager.getConnection();
+        try (Connection conn = sqLiteManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            // Asumimos que el prefijo es pasado como un código de 3 letras (Ej: LLA)
             pstmt.setString(1, prefix.toUpperCase(Locale.ROOT));
             ResultSet rs = pstmt.executeQuery();
 
@@ -288,24 +286,22 @@ public class MasterProductRepositorySQLite implements IMasterProductRepository {
     }
     @Override
     public void decreaseStock(String masterCode, int quantity) throws RuntimeException {
-        // Solo ejecuta la actualización si la cantidad_disponible actual es >= a la cantidad a restar.
         String sql = "UPDATE finished_products_stock SET quantity_available = quantity_available - ? WHERE master_code = ? AND quantity_available >= ?";
 
-        try (java.sql.Connection conn = com.calmasalud.hubi.persistence.db.SQLiteManager.getConnection();
-             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (Connection conn = sqLiteManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setInt(1, quantity);
             pstmt.setString(2, masterCode);
-            pstmt.setInt(3, quantity); // Usamos la cantidad para verificar la condición
+            pstmt.setInt(3, quantity);
 
             int rows = pstmt.executeUpdate();
 
             if (rows == 0) {
-                // Si ninguna fila fue actualizada, el stock era insuficiente (stock < quantity)
                 throw new RuntimeException("Stock insuficiente o producto no encontrado para la eliminación de unidades.");
             }
 
-        } catch (java.sql.SQLException e) {
+        } catch (SQLException e) {
             System.err.println("❌ Error al disminuir stock: " + e.getMessage());
             throw new RuntimeException("Fallo en la persistencia al disminuir stock.", e);
         }

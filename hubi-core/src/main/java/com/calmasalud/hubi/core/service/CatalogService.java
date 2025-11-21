@@ -4,10 +4,7 @@ package com.calmasalud.hubi.core.service;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import com.calmasalud.hubi.core.model.MasterProduct;
@@ -17,16 +14,21 @@ import com.calmasalud.hubi.core.model.ProductComposition;
 import com.calmasalud.hubi.core.repository.IMasterProductRepository;
 import com.calmasalud.hubi.core.repository.IProductCompositionRepository;
 import com.calmasalud.hubi.core.repository.IProductRepository;
-
+import com.calmasalud.hubi.core.model.Supply;
+import com.calmasalud.hubi.core.repository.ISupplyRepository;
+import com.calmasalud.hubi.core.repository.ISupplyRepository;
 public class CatalogService {
     private final IProductRepository productRepository;
     private final IMasterProductRepository masterProductRepository;
     private final IProductCompositionRepository productCompositionRepository;
+    private final FileParameterExtractor fileExtractor = new FileParameterExtractor();
+    private final ISupplyRepository supplyRepository;
     // Constructor for Dependency Injection (Correct)
-    public CatalogService(IProductRepository productRepository, IMasterProductRepository masterProductRepository,IProductCompositionRepository productCompositionRepository) {
+    public CatalogService(IProductRepository productRepository, IMasterProductRepository masterProductRepository,IProductCompositionRepository productCompositionRepository, ISupplyRepository supplyRepository) {
         this.productRepository = productRepository;
         this.masterProductRepository = masterProductRepository;
         this.productCompositionRepository = productCompositionRepository;
+        this.supplyRepository = supplyRepository;
     }
 
     // Se define la ubicación base de forma portable
@@ -200,6 +202,19 @@ public class CatalogService {
      * @param nombreProducto Nombre deseado para el nuevo producto (usado para la carpeta).
      * @throws IOException Si hay error de validación, creación de directorio, BD o copia/movimiento de archivo.
      */
+    /**
+     * Procesa la carga de uno o más archivos como un NUEVO PRODUCTO. (REQ 1 - Modificado para List)
+     * @param archivosOrigen Lista de archivos .stl, .3mf, .gcode a cargar.
+     * @param nombreProducto Nombre deseado para el nuevo producto (usado para la carpeta).
+     * @throws IOException Si hay error de validación, creación de directorio, BD o copia/movimiento de archivo.
+     */
+    /**
+     * Procesa la carga de uno o más archivos como un NUEVO PRODUCTO. (REQ 1 - Modificado para List)
+     * Incluye extracción de peso y detalle de consumo para HU3.
+     * @param archivosOrigen Lista de archivos .stl, .3mf, .gcode a cargar.
+     * @param nombreProducto Nombre deseado para el nuevo producto (usado para la carpeta).
+     * @throws IOException Si hay error de validación, creación de directorio, BD o copia/movimiento de archivo.
+     */
     public void procesarCargaProducto(List<File> archivosOrigen, String nombreProducto) throws IOException {
         if (archivosOrigen == null || archivosOrigen.isEmpty()) {
             throw new IOException("Error: No se proporcionaron archivos para cargar.");
@@ -233,13 +248,13 @@ public class CatalogService {
         String prefijoColor = COLOR_POR_DEFECTO.trim().substring(0, 3).toUpperCase();
         String prefijoSeisLetras = prefijoProd + prefijoColor; // Ej: SOPROJ
 
-        // ... (Resto de la lógica original para procesar piezas) ...
         // 3. Obtener el primer correlativo disponible para PIEZAS (La BD lo incrementa/reserva aquí)
         int currentCorrelative = Integer.parseInt(productRepository.getNextCorrelative(prefijoSeisLetras));
 
         // 4. Crear el directorio (si no existe) con el nombre dado por el usuario
         Path directorioProducto = REPOSITORIO_BASE.resolve(nombreProducto);
         Files.createDirectories(directorioProducto);
+
         // 5. Lógica para procesar y guardar las piezas individuales
         Map<String, List<File>> archivosPorNombreBase = archivosOrigen.stream()
                 .filter(file -> {
@@ -269,8 +284,45 @@ public class CatalogService {
                 String pieceExtension = getFileExtension(nombreArchivoOriginal);
 
                 try {
-                    // A. Guardar en BD (usando el mismo pieceCode para todos los del grupo)
-                    Product newPiece = new Product(pieceCode, nombreArchivoOriginal, pieceExtension);
+                    // --- EXTRAER PESO Y DETALLE (LOGICA HU3) ---
+                    double pesoTotalDetectado = 0.0;
+                    List<Double> pesosIndividuales = new ArrayList<>();
+
+                    try {
+                        List<File> filesToAnalyze = new ArrayList<>();
+                        filesToAnalyze.add(archivo);
+
+                        // Usamos el extractor de la clase
+                        FileParameterExtractor.PrintInfo info = fileExtractor.extract(filesToAnalyze);
+
+                        for (FileParameterExtractor.FilamentProfile profile : info.filamentProfiles.values()) {
+                            if (profile.filamentAmountG != null && !profile.filamentAmountG.equals("N/D")) {
+                                try {
+                                    String cleanWeight = profile.filamentAmountG.replace(" g", "").trim();
+                                    double val = Double.parseDouble(cleanWeight);
+                                    if (val > 0) {
+                                        pesoTotalDetectado += val;
+                                        pesosIndividuales.add(val);
+                                    }
+                                } catch (NumberFormatException e) { /* Ignorar */ }
+                            }
+                        }
+                        System.out.println("⚖️ Peso extraído para " + archivo.getName() + ": " + pesoTotalDetectado + "g");
+
+                    } catch (Exception e) {
+                        System.err.println("⚠️ No se pudo extraer el peso del archivo: " + e.getMessage());
+                    }
+
+                    // Generar String de detalle (ej: "80.5;20.2") para soporte multicolor
+                    String usageDetailStr = pesosIndividuales.stream()
+                            .map(String::valueOf)
+                            .collect(Collectors.joining(";"));
+                    // ---------------------------------------------------------
+
+                    // A. Guardar en BD (CON PESO Y DETALLE)
+                    // 🚨 Usamos el constructor completo actualizado
+                    Product newPiece = new Product(pieceCode, nombreArchivoOriginal, pieceExtension, pesoTotalDetectado, usageDetailStr);
+
                     long pieceId = productRepository.save(newPiece);
                     if (pieceId == -1) {
                         throw new IOException("No se pudo guardar la pieza en la base de datos. Código: " + pieceCode);
@@ -299,8 +351,7 @@ public class CatalogService {
         if (loadedCount == 0) {
             throw new IOException("No se pudo cargar ningún archivo de la lista proporcionada.");
         }
-    }
-    /**
+    }/**
      * Procesa la carga de un archivo como una PIEZA asociada a un PRODUCTO existente. (REQ 2 & 3)
      * @param archivoOrigen Archivo .stl, .3mf, .gcode a cargar como pieza.
      * @param rutaDirectorioProducto Ruta absoluta a la carpeta del producto existente.
@@ -327,50 +378,68 @@ public class CatalogService {
 
         String baseNameWithoutExt = nombreArchivoOriginal.substring(0, nombreArchivoOriginal.lastIndexOf('.'));
 
-        // --- VALIDACIÓN 1: DUPLICADO POR NOMBRE Y EXTENSIÓN (REQ 3) ---
+        double pesoTotalDetectado = 0.0;
+        List<Double> pesosIndividuales = new ArrayList<>();
+        try {
+            List<File> filesToAnalyze = new ArrayList<>();
+            filesToAnalyze.add(archivoOrigen);
+            FileParameterExtractor.PrintInfo info = fileExtractor.extract(filesToAnalyze);
+
+            // Iterar sobre los perfiles encontrados (T0, T1...)
+            for (FileParameterExtractor.FilamentProfile profile : info.filamentProfiles.values()) {
+                if (profile.filamentAmountG != null && !profile.filamentAmountG.equals("N/D")) {
+                    try {
+                        String cleanWeight = profile.filamentAmountG.replace(" g", "").trim();
+                        double val = Double.parseDouble(cleanWeight);
+                        if (val > 0) {
+                            pesoTotalDetectado += val;
+                            pesosIndividuales.add(val); // Guardamos cada peso > 0
+                        }
+                    } catch (NumberFormatException e) { }
+                }
+            }
+
+        } catch (Exception e) {
+            System.err.println("⚠️ No se pudo extraer el peso del archivo: " + e.getMessage());
+        }
+        // Convertir lista de pesos a String (Ej: "12.5;4.2")
+        String usageDetailStr = pesosIndividuales.stream()
+                .map(String::valueOf)
+                .collect(Collectors.joining(";"));
+        // --- VALIDACIÓN 1: DUPLICADO (REQ 3) ---
         if (isDuplicate(directorioProductoFile, nombreArchivoOriginal)) {
-            throw new IOException("Duplicado: Ya existe un archivo con el mismo nombre y extensión ('" + nombreArchivoOriginal + "') en la carpeta del producto. Por favor, renombre el archivo para subirlo.");
+            throw new IOException("Duplicado: Ya existe un archivo con el mismo nombre.");
         }
 
-        // --- CORRELACIÓN: BUSCAR ARCHIVO CON EL MISMO CÓDIGO BASE Y DIFERENTE EXTENSIÓN (REQ 2) ---
+        // --- CORRELACIÓN (REQ 2) ---
         String existingFullCode = findExistingCorrelative(directorioProductoFile, baseNameWithoutExt, extension);
-
         String finalCode;
         String prefijoSeisLetras;
 
-        // 1. Obtener el prefijo base (ej: SOPROJ)
-        // Se usa generateProductCode con un correlativo dummy ("001") para obtener el prefijo de 6 letras de forma consistente.
+        // Obtener prefijo base
         String tempCode = generateProductCode(nombreProducto, "001");
         prefijoSeisLetras = tempCode.substring(0, 6);
 
-
         if (existingFullCode != null) {
-            // REQ 2: Encontrado un archivo correlacionado, USAR SU NÚMERO CORRELATIVO.
-            // El correlativo son los últimos 3 dígitos del código completo (Ej: SOPROJ001 -> "001")
             String correlativeToUse = existingFullCode.substring(existingFullCode.length() - 3);
-
-            // El código final es PROCOL001, reciclando el número existente.
             finalCode = prefijoSeisLetras + correlativeToUse;
-
         } else {
-            // No correlacionado, obtener el siguiente código único de la BD (y reservarlo).
-            // generateProductCode(nombreProducto, null) llama a getNextCorrelative, que consume el número.
             finalCode = generateProductCode(nombreProducto, null);
         }
 
-        // --- PROCESAMIENTO FINAL ---
+        // 🚨 FALTABA ESTO: DEFINIR EL NOMBRE Y RUTA FINAL
         String nombreArchivoFinal = finalCode + extension;
         Path rutaDestinoFinalEnProducto = directorioDestino.resolve(nombreArchivoFinal);
 
-        Product newPiece = new Product(finalCode, nombreArchivoOriginal, extension);
+        Product newPiece = new Product(finalCode, nombreArchivoOriginal, extension, pesoTotalDetectado, usageDetailStr);
 
         // Persistir en la base de datos
         long id = productRepository.save(newPiece);
         if (id == -1) {
-            throw new IOException("Error: No se pudo guardar la pieza en la base de datos (posible conflicto de código: " + finalCode + ").");
+            throw new IOException("Error: No se pudo guardar la pieza en la base de datos.");
         }
 
-        // Copia el archivo original a la carpeta del producto con el nombre de código único
+        // Copia el archivo
         Files.copy(archivoOrigen.toPath(), rutaDestinoFinalEnProducto, StandardCopyOption.REPLACE_EXISTING);
 
         System.out.println("✅ Pieza '" + nombreArchivoFinal + "' agregada al producto '" + nombreProducto + "'.");
@@ -488,11 +557,11 @@ public class CatalogService {
                 .forEach(path -> {
                     File pieceFile = path.toFile();
                     String fileName = pieceFile.getName();
-                    String code = "";
+                   // String code = "";
                     int lastDotIndex = fileName.lastIndexOf('.');
 
-                    if (lastDotIndex != -1 && lastDotIndex > 0) {
-                        code = fileName.substring(0, lastDotIndex);
+                    if (lastDotIndex > 0) {
+                        String code = fileName.substring(0, lastDotIndex);
 
                         // LÓGICA CRÍTICA: Obtener el nombre base ANTES de eliminar el registro de 'products'
                         Product piece = productRepository.findByCode(code);
@@ -636,5 +705,251 @@ public class CatalogService {
             throw new IOException("Fallo al descontar el stock de piezas. La operación fue revertida. Razón: " + e.getMessage(), e);
         }
     }
+    public void addOrModifySupplyStock(Supply supply) {
+        Supply existingSupply = null;
+
+        // Busca si ya existe un insumo con el mismo tipo y color.
+        // NOTA: Esta búsqueda es ineficiente si la lista es grande.
+        // Idealmente, ISupplyRepository debería tener un método findByColorAndType.
+        for (Supply s : supplyRepository.listAll()) {
+            if (s.getColorFilamento().equalsIgnoreCase(supply.getColorFilamento()) &&
+                    s.getTipoFilamento().equalsIgnoreCase(supply.getTipoFilamento())) {
+                existingSupply = s;
+                break;
+            }
+        }
+
+        if (existingSupply != null) {
+            // Modificar (sumar el nuevo stock al existente)
+            double newQuantity = existingSupply.getCantidadDisponible() + supply.getCantidadDisponible();
+            existingSupply.setCantidadDisponible(newQuantity);
+
+            // También se actualizan los otros campos por si se modificaron (código, nombre, umbral)
+            existingSupply.setName(supply.getName());
+            existingSupply.setCode(supply.getCode());
+            existingSupply.setUmbralAlerta(supply.getUmbralAlerta());
+
+            supplyRepository.modify(existingSupply);
+        } else {
+            // Agregar nuevo insumo
+            if (supply.getCantidadDisponible() > 0) {
+                supplyRepository.add(supply);
+            } else {
+                // No se agrega un insumo con cantidad 0 por primera vez, o se lanza una excepción.
+                // Aquí se opta por no agregarlo si la cantidad es <= 0.
+            }
+        }
+    }
+
+    /**
+     * Descuenta una cantidad de un insumo específico por su ID (ej. por descarte o defecto).
+     * RF5: Eliminar insumo (defecto o descarte).
+     * @param id El ID del insumo.
+     * @param quantity La cantidad a descontar (en gramos).
+     * @throws IllegalArgumentException si la cantidad a descontar es mayor a la disponible.
+     */
+    public void removeSupplyStock(long id, double quantity) throws IllegalArgumentException {
+        Supply supply = supplyRepository.findByID(id);
+        if (supply == null) {
+            throw new IllegalArgumentException("Insumo no encontrado con ID: " + id);
+        }
+
+        double currentQuantity = supply.getCantidadDisponible();
+
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("La cantidad a descontar debe ser positiva.");
+        }
+
+        // Permitimos que la cantidad sea IGUAL al stock actual (para eliminarlo todo)
+        // Usamos una pequeña tolerancia (epsilon) para comparaciones de punto flotante
+        if (quantity > (currentQuantity + 0.001)) {
+            throw new IllegalArgumentException("No hay suficiente stock. Disponible: " + currentQuantity + " gramos. Intentando descontar: " + quantity + " gramos.");
+        }
+
+        double newQuantity = currentQuantity - quantity;
+
+        // 🚨 LÓGICA DE ELIMINACIÓN AUTOMÁTICA
+        // Si el nuevo stock es 0 (o negativo por error de redondeo), eliminamos el insumo.
+        if (newQuantity <= 0.01) {
+            supplyRepository.delete(id); // Borrado físico de la BD
+            System.out.println("ℹ️ Insumo eliminado por stock agotado: ID " + id);
+        } else {
+            // Si sobra stock, solo actualizamos la cantidad
+            supply.setCantidadDisponible(newQuantity);
+            supplyRepository.modify(supply);
+        }
+    }
+    /**
+     * Obtiene el listado completo de insumos.
+     * @return Lista de todos los insumos.
+     */
+    public List<Supply> listAllSupplies() {
+        return supplyRepository.listAll();
+    }
+
+    public String generateNextSupplyCode(String colorPrefix, String tipoFilamento) {
+        // Delega la responsabilidad de la transacción al repositorio
+        return supplyRepository.getNextCorrelativeCode(colorPrefix, tipoFilamento);
+    }
+    public List<String> getAvailableFilamentColors() {
+        return supplyRepository.listAll().stream()
+                .filter(s -> s.getCantidadDisponible() > 0) // Solo los que tienen stock
+                .map(s -> s.getColorFilamento() + " " + s.getTipoFilamento())
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+    }
+    /**
+     * HU3: Registra la producción de una pieza, verifica stock, descuenta insumos y devuelve reporte.
+     * @param pieceCode Código único de la pieza (Ej: SOPROJ001).
+     * @param selectedColors Lista de strings "COLOR TIPO" seleccionados (Ej: ["ROJO PLA", "AZUL ABS"]).
+     * @param quantity Cantidad de piezas producidas.
+     * @return Lista de mensajes detallados sobre el descuento realizado.
+     */
+    /**
+     * HU3: Registra la producción, verifica stock y descuenta insumos basándose en el consumo real por color.
+     * Regla: Los pesos extraídos del archivo se ordenan (Mayor a Menor) y se asignan a los colores seleccionados (Color 1, Color 2...).
+     * @return Lista de mensajes detallados sobre el descuento realizado.
+     */
+    public List<String> registerPieceProduction(String pieceCode, List<String> selectedColors, int quantity) {
+        List<String> reportMessages = new ArrayList<>();
+        System.out.println("--- DEBUG: Iniciando Registro de Producción (Lógica Ponderada) ---");
+        System.out.println("Pieza: " + pieceCode + " | Cantidad: " + quantity);
+
+        // 1. BUSCAR LA PIEZA Y SUS DETALLES DE CONSUMO
+        Product piece = productRepository.findByCode(pieceCode);
+        if (piece == null) {
+            throw new RuntimeException("Pieza no encontrada con código: " + pieceCode);
+        }
+
+        // Recuperar y parsear los pesos individuales (ej: "12.5;4.2")
+        List<Double> weights = new ArrayList<>();
+        String detail = piece.getUsageDetail();
+
+        if (detail != null && !detail.isEmpty()) {
+            for (String w : detail.split(";")) {
+                try {
+                    double val = Double.parseDouble(w);
+                    if (val > 0) weights.add(val);
+                } catch (NumberFormatException e) { /* Ignorar valores corruptos */ }
+            }
+        }
+
+        // Fallback: Si no hay detalle (piezas viejas), usamos el peso total como un único bloque
+        if (weights.isEmpty() && piece.getWeightGrams() > 0) {
+            weights.add(piece.getWeightGrams());
+        }
+
+        // 🚨 ORDENAR PESOS DE MAYOR A MENOR
+        // Para que el Color 1 (Principal) consuma la mayor cantidad
+        weights.sort(Comparator.reverseOrder());
+
+        if (weights.isEmpty()) {
+            reportMessages.add("⚠️ Advertencia: La pieza no tiene peso registrado (0g). No se descontará filamento.");
+            System.out.println("WARN: Peso 0g.");
+        }
+
+        // 2. PRE-VALIDACIÓN DE STOCK
+        // Verificamos que TODOS los colores tengan suficiente material antes de tocar la BD.
+        if (!selectedColors.isEmpty() && !weights.isEmpty()) {
+            List<Supply> allSupplies = supplyRepository.listAll();
+
+            for (int i = 0; i < selectedColors.size(); i++) {
+                String colorKey = selectedColors.get(i);
+
+                // Asignar peso: El color i consume el peso i. Si hay más colores que pesos, consumen 0.
+                double weightForThisColorUnit = (i < weights.size()) ? weights.get(i) : 0.0;
+                double totalRequiredForBatch = weightForThisColorUnit * quantity;
+
+                if (totalRequiredForBatch > 0) {
+                    Supply supply = findSupplyByColorKey(allSupplies, colorKey);
+
+                    if (supply == null) {
+                        throw new RuntimeException("No existe stock registrado para el insumo: " + colorKey);
+                    }
+
+                    // Verificación estricta
+                    // Usamos un pequeño margen de error (epsilon) para evitar problemas de punto flotante
+                    if (supply.getCantidadDisponible() < (totalRequiredForBatch - 0.001)) {
+                        throw new RuntimeException("Stock insuficiente para " + colorKey +
+                                ".\nRequerido: " + String.format(Locale.US, "%.2f", totalRequiredForBatch) + "g" +
+                                "\nDisponible: " + String.format(Locale.US, "%.2f", supply.getCantidadDisponible()) + "g");
+                    }
+                }
+            }
+        }
+
+        // 3. EJECUCIÓN: DESCUENTO DE STOCK
+        if (!selectedColors.isEmpty() && !weights.isEmpty()) {
+            // Recargamos la lista para tener los datos más frescos posibles
+            List<Supply> allSupplies = supplyRepository.listAll();
+
+            for (int i = 0; i < selectedColors.size(); i++) {
+                String colorKey = selectedColors.get(i);
+                double weightForThisColorUnit = (i < weights.size()) ? weights.get(i) : 0.0;
+                double totalRequiredForBatch = weightForThisColorUnit * quantity;
+
+                if (totalRequiredForBatch > 0) {
+                    Supply supply = findSupplyByColorKey(allSupplies, colorKey);
+
+                    // Cálculos para el reporte
+                    double previousStock = supply.getCantidadDisponible();
+                    double newStock = previousStock - totalRequiredForBatch;
+                    if (newStock < 0) newStock = 0;
+
+                    // Descontar (Llama a removeSupplyStock que borra si llega a 0)
+                    removeSupplyStock(supply.getId(), totalRequiredForBatch);
+
+                    // Agregar al reporte
+                    reportMessages.add(String.format("• %s (Prioridad %d): Descontado %.2fg. (Quedan %.2fg)",
+                            colorKey, i + 1, totalRequiredForBatch, newStock));
+
+                    System.out.println(">> Descuento: " + colorKey + " -" + totalRequiredForBatch + "g");
+                } else {
+                    // Si el usuario seleccionó 3 colores pero el archivo solo usa 2, el 3ro es 0g
+                    reportMessages.add(String.format("• %s: No se detectó consumo asociado (0g).", colorKey));
+                }
+            }
+        }
+
+        // 4. AUMENTAR STOCK DE PIEZA
+        // Usamos el nombre base (sin extensión) para que coincida con la vista de Inventario
+        String pieceName = piece.getName();
+        String pieceNameBase = pieceName.contains(".") ? pieceName.substring(0, pieceName.lastIndexOf('.')) : pieceName;
+        String combinationKey = String.join("|", selectedColors);
+
+        productRepository.increasePieceStockQuantity(pieceNameBase, combinationKey, quantity);
+
+        System.out.println("✅ Stock aumentado para pieza: " + pieceNameBase + " | Color: " + combinationKey + " | Cant: " + quantity);
+        System.out.println("--- DEBUG: Fin Registro Producción ---");
+
+        return reportMessages;
+    }
+    // Método auxiliar privado para buscar el insumo (Parseo robusto)
+    private Supply findSupplyByColorKey(List<Supply> allSupplies, String colorKey) {
+        // Parseo: Busca el ÚLTIMO espacio para separar "ROJO" de "PLA"
+        // Permite colores compuestos como "AZUL OSCURO PLA"
+        int lastSpaceIndex = colorKey.lastIndexOf(' ');
+        String color = "";
+        String tipo = "";
+
+        if (lastSpaceIndex != -1) {
+            color = colorKey.substring(0, lastSpaceIndex).trim(); // "ROJO"
+            tipo = colorKey.substring(lastSpaceIndex + 1).trim(); // "PLA"
+        } else {
+            color = colorKey; // Fallback
+        }
+
+        String finalColor = color;
+        String finalTipo = tipo;
+
+        return allSupplies.stream()
+                .filter(s -> s.getColorFilamento().equalsIgnoreCase(finalColor) &&
+                        s.getTipoFilamento().equalsIgnoreCase(finalTipo))
+                .findFirst()
+                .orElse(null);
+    }
+
+
 }
 

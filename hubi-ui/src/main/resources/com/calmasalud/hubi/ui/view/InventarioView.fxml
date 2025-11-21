@@ -1,54 +1,73 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.control.SplitPane?>
-<?import javafx.scene.control.TreeTableView?>
-<?import javafx.scene.control.TreeTableColumn?>
-<?import javafx.scene.layout.VBox?>
-<?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TreeTableColumn?>
+<?import javafx.scene.control.TreeTableView?>
+<?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
 
-<SplitPane dividerPositions="0.5" prefHeight="700.0" prefWidth="1000.0" styleClass="module-container" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.InventarioController" stylesheets="@../css/styles.css">
-    <padding>
-        <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
-    </padding>
-    <items>
-        <VBox spacing="10.0" alignment="TOP_CENTER" SplitPane.resizableWithParent="true">
-            <Label styleClass="section-title" text="GESTIÓN DE STOCK DE PRODUCTOS TERMINADOS (CATÁLOGO)" />
+<StackPane fx:id="contentArea" prefHeight="700.0" prefWidth="1000.0" styleClass="module-container" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.InventarioController" stylesheets="@../css/styles.css">
 
-            <TreeTableView fx:id="productStockTable" VBox.vgrow="ALWAYS" prefHeight="500">
+    <VBox fx:id="productContentArea" alignment="TOP_CENTER" spacing="10.0" styleClass="view-anchor-pane" visible="true" managed="true">
+        <padding>
+            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+        </padding>
+        <Label styleClass="section-title" text="GESTIÓN DE STOCK DE PRODUCTOS TERMINADOS Y PIEZAS" />
+
+        <TreeTableView fx:id="productStockTable" VBox.vgrow="ALWAYS" prefHeight="500">
+            <columns>
+                <TreeTableColumn fx:id="colProductoNombre" text="Producto" prefWidth="250.0" />
+                <TreeTableColumn fx:id="colProductoCodigo" text="Código Maestro (RF8)" prefWidth="150.0" />
+                <TreeTableColumn fx:id="colProductoDisponible" text="Unidades (RF4)" prefWidth="100.0" />
+                <TreeTableColumn fx:id="colProductoPrecio" text="Valor" prefWidth="100.0" />
+            </columns>
+            <columnResizePolicy>
+                <TreeTableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+            </columnResizePolicy>
+        </TreeTableView>
+
+        <Label styleClass="section-subtitle" text="Acciones sobre el Stock Final (Producto Terminado)" />
+        <HBox alignment="CENTER" spacing="10.0">
+            <Button text="AGREGAR STOCK FINAL" styleClass="accept-button" onAction="#handleAddProductStock" />
+            <Button text="ELIMINAR STOCK PRODUCTO" styleClass="danger-button" onAction="#handleDeleteProductStock" />
+        </HBox>
+
+        <Label styleClass="section-subtitle" text="Acciones sobre el Stock Granular (Piezas)" />
+        <HBox alignment="CENTER" spacing="10.0">
+            <Button text="AGREGAR PIEZA" styleClass="action-button" onAction="#handleModifyPieceStock" />
+            <Button text="ELIMINAR STOCK PIEZA POR COLOR" styleClass="danger-button" onAction="#handleDeleteStockColorUnit" />
+        </HBox>
+    </VBox>
+
+    <AnchorPane fx:id="supplyContentArea" prefHeight="550.0" prefWidth="900.0" styleClass="view-anchor-pane" visible="false" managed="false">
+        <children>
+            <Label styleClass="section-title" text="GESTIÓN DE STOCK DE INSUMOS (FILAMENTO)" AnchorPane.topAnchor="10.0" AnchorPane.leftAnchor="10.0" AnchorPane.rightAnchor="10.0"/>
+            <TableView fx:id="tablaInsumos" layoutX="10.0" layoutY="50.0" prefHeight="420.0" prefWidth="880.0" AnchorPane.leftAnchor="10.0" AnchorPane.rightAnchor="10.0" AnchorPane.topAnchor="50.0">
                 <columns>
-                    <TreeTableColumn fx:id="colProductoNombre" text="Producto" prefWidth="200.0" />
-                    <TreeTableColumn fx:id="colProductoCodigo" text="Código Maestro (RF8)" prefWidth="100.0" />
-                    <TreeTableColumn fx:id="colProductoDisponible" text="Unidades (RF4)" prefWidth="100.0" />
-                    <TreeTableColumn fx:id="colProductoPrecio" text="Valor" prefWidth="100.0" />
+                    <TableColumn fx:id="colInsumoCodigo" prefWidth="120.0" text="Código/Marca"/>
+                    <TableColumn fx:id="colInsumoNombre" prefWidth="150.0" text="Nombre"/>
+                    <TableColumn fx:id="colInsumoTipo" prefWidth="100.0" text="Tipo"/>
+                    <TableColumn fx:id="colInsumoColor" prefWidth="150.0" text="Color"/>
+                    <TableColumn fx:id="colInsumoStock" prefWidth="120.0" text="Stock (g)"/>
+                    <TableColumn fx:id="colInsumoUmbral" prefWidth="120.0" text="Umbral Alerta (g)"/>
                 </columns>
-            </TreeTableView>
-            <Label styleClass="section-subtitle" text="Acciones sobre el Stock Final (Producto Terminado)" />
-            <HBox alignment="CENTER" spacing="10.0">
-                <Button text="AGREGAR STOCK FINAL" styleClass="action-button" onAction="#handleAddProductStock" />
-                <Button text="ELIMINAR STOCK PRODUCTO" styleClass="danger-button" onAction="#handleDeleteProductStock" />
+                <columnResizePolicy>
+                    <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                </columnResizePolicy>
+            </TableView>
+            <HBox alignment="CENTER_LEFT" layoutX="10.0" layoutY="500.0" spacing="10.0" AnchorPane.bottomAnchor="10.0" AnchorPane.leftAnchor="10.0">
+                <Button fx:id="btnAgregarInsumo" mnemonicParsing="false" onAction="#handleManageSupplyStock" text="Añadir Nuevo Insumo/Stock" styleClass="accept-button"/>
+                <Button fx:id="btnModificarInsumo" mnemonicParsing="false" onAction="#handleManageSupplyStock" text="Modificar Datos/Stock Seleccionado" styleClass="action-button"/>
+                <Button fx:id="btnEliminarInsumo" mnemonicParsing="false" onAction="#handleRemoveSupplyStock" text="Descartar Insumo/Stock" styleClass="danger-button"/>
+
+                <Label fx:id="lblSelectionHint" text="Doble clic en la tabla para modificar datos del insumo." HBox.hgrow="ALWAYS" alignment="CENTER_RIGHT"/>
             </HBox>
-
-            <Label styleClass="section-subtitle" text="Acciones sobre el Stock Granular (Piezas)" />
-            <HBox alignment="CENTER" spacing="10.0">
-                <Button text="AGREGAR PIEZA " styleClass="action-button" onAction="#handleModifyPieceStock" />
-                <Button text="ELIMINAR STOCK PIEZA " styleClass="danger-button" onAction="#handleDeleteStockColorUnit" />
-            </HBox>
-        </VBox>
-
-        <VBox spacing="10.0" alignment="TOP_CENTER" SplitPane.resizableWithParent="true">
-            <Label styleClass="section-title" text="GESTIÓN DE STOCK DE INSUMOS" />
-
-            <AnchorPane fx:id="supplyPlaceholder" VBox.vgrow="ALWAYS" prefHeight="500" />
-
-            <HBox alignment="CENTER" spacing="10.0">
-                <Button text="AGREGAR INSUMO (RF5)" styleClass="action-button" onAction="#handleAddSupply" />
-                <Button text="ELIMINAR INSUMO" styleClass="danger-button" onAction="#handleRemoveSupply" />
-                <Button text="MODIFICAR" styleClass="modify-button" onAction="#handleModifySupply" />
-            </HBox>
-        </VBox>
-    </items>
-</SplitPane>
+        </children>
+    </AnchorPane>
+</StackPane>

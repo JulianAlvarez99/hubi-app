@@ -13,6 +13,7 @@
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
+<?import javafx.scene.control.Button?>
 <BorderPane prefHeight="768.0" prefWidth="1024.0" stylesheets="@../css/styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.MainController" >
 
     <top>
@@ -45,9 +46,18 @@
                 <fx:define>
                     <ToggleGroup fx:id="menuToggleGroup" />
                 </fx:define>
-                <ToggleButton fx:id="btnCatalogo" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleMenuCatalogo" selected="true" styleClass="menu-toggle-button" text="GESTOR DE CATÁLOGO" toggleGroup="$menuToggleGroup" />
-                <ToggleButton fx:id="btnInventario" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleMenuInventario" styleClass="menu-toggle-button" text="INVENTARIO" toggleGroup="$menuToggleGroup" />
-<!--                {/* Opcional: Podrías añadir wrapText="true" si prefieres que el texto salte de línea */}-->
+
+                <ToggleButton fx:id="btnCatalogo" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleMenuCatalogo" styleClass="menu-toggle-button" text="CATÁLOGO" toggleGroup="$menuToggleGroup" />
+
+                <VBox spacing="0" styleClass="menu-sub-container" maxWidth="1.7976931348623157E308">
+                    <ToggleButton fx:id="btnInventario" maxWidth="1.7976931348623157E308" mnemonicParsing="false" styleClass="menu-toggle-button" text="INVENTARIO" onAction="#handleToggleInventarioSubMenu" toggleGroup="$menuToggleGroup" />
+
+                    <VBox fx:id="subInventarioMenu" spacing="0" managed="false" visible="false" styleClass="submenu-vbox" minWidth="180.0">
+                        <Button fx:id="btnSubProductos" maxWidth="1.7976931348623157E308" styleClass="submenu-button" text="Productos y Piezas" onAction="#handleMenuInventarioProductos" />
+                        <Button fx:id="btnSubInsumos" maxWidth="1.7976931348623157E308" styleClass="submenu-button" text="Stock de Insumos" onAction="#handleMenuInventarioInsumos" />
+                    </VBox>
+                </VBox>
+
                 <ToggleButton fx:id="btnReportes" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleMenuReportes" styleClass="menu-toggle-button" text="REPORTES Y SEGUIMIENTO" toggleGroup="$menuToggleGroup" wrapText="false"/>
                 <ToggleButton fx:id="btnConfiguracion" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleMenuConfiguracion" styleClass="menu-toggle-button" text="CONFIGURACIÓN" toggleGroup="$menuToggleGroup" />
             </children>
