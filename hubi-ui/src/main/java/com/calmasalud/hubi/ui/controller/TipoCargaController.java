@@ -6,7 +6,11 @@ import com.calmasalud.hubi.core.repository.IProductRepository;
 import com.calmasalud.hubi.persistence.repository.MasterProductRepositorySQLite;
 import com.calmasalud.hubi.persistence.repository.ProductCompositionRepositorySQLite;
 import com.calmasalud.hubi.persistence.repository.ProductRepositorySQLite;
+//import com.calmasalud.hubi.persistence.repository.ProductionRepositorySQLite;
+import com.calmasalud.hubi.core.repository.IProductionRepository;
 import com.calmasalud.hubi.core.service.CatalogService;
+import com.calmasalud.hubi.core.repository.ISupplyRepository;
+import com.calmasalud.hubi.persistence.repository.SupplyRepositorySQLite;
 import javafx.collections.FXCollections;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -45,15 +49,16 @@ public class TipoCargaController {
     // --- Inyección de Dependencia (ACTUALIZADA) ---
     private final IProductRepository productSqliteRepository = new ProductRepositorySQLite();
     private final IMasterProductRepository masterProductRepository = new MasterProductRepositorySQLite();
-
-
     private final IProductCompositionRepository productCompositionRepository = new ProductCompositionRepositorySQLite();
+    //private final IProductionRepository productionRepository = new ProductionRepositorySQLite();
+    private final ISupplyRepository supplyRepository = new SupplyRepositorySQLite();
 
 
     private final CatalogService catalogoService = new CatalogService(
-            productSqliteRepository,
-            masterProductRepository,
-            productCompositionRepository // TERCER ARGUMENTO AÑADIDO
+            productSqliteRepository,        // 1. IProductRepository
+            masterProductRepository,        // 2. IMasterProductRepository
+            productCompositionRepository,   // 3. IProductCompositionRepository
+            supplyRepository                // 4. ISupplyRepository
     );
     // ---------------------------------
 

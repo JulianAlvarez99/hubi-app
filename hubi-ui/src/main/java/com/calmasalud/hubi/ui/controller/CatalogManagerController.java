@@ -51,8 +51,8 @@ import javafx.scene.Group;
 import javafx.scene.PerspectiveCamera;
 import javafx.scene.SceneAntialiasing;
 import javafx.scene.AmbientLight;
-
-
+import com.calmasalud.hubi.core.repository.ISupplyRepository;
+import com.calmasalud.hubi.persistence.repository.SupplyRepositorySQLite;
 public class CatalogManagerController {
 
     // --- CONSTANTE DE COSTO POR DEFECTO ---
@@ -60,13 +60,20 @@ public class CatalogManagerController {
 
     private final IProductRepository productSqliteRepository = new ProductRepositorySQLite();
     private final IMasterProductRepository masterProductRepository = new MasterProductRepositorySQLite();
-
-
     private final IProductCompositionRepository productCompositionRepository = new ProductCompositionRepositorySQLite();
 
 
-    private final CatalogService catalogoService = new CatalogService(productSqliteRepository, masterProductRepository, productCompositionRepository);
+    private final ISupplyRepository supplyRepository = new SupplyRepositorySQLite();
 
+
+    private final CatalogService catalogoService = new CatalogService(
+            // 🚨 FIX: Se pasa el cuarto argumento, manteniendo el orden de la firma:
+            // (IProductRepository, IMasterProductRepository, IProductCompositionRepository, ISupplyRepository)
+            productSqliteRepository,
+            masterProductRepository,
+            productCompositionRepository,
+            supplyRepository
+    );
     private final FileParameterExtractor extractor = new FileParameterExtractor();
 
     // Variables para guardar la posición del mouse al hacer clic
@@ -244,7 +251,29 @@ public class CatalogManagerController {
         // Carga inicial del TreeView y TableView
         refrescarVistaCatalogo();
     }
+    //Asegura que el directorio exista y notifica si se crea.
+    private boolean ensureRepositoryExists() {
+        if (REPOSITORIO_BASE.exists() && REPOSITORIO_BASE.isDirectory()) {
+            return true;
+        }
 
+        try {
+            boolean created = REPOSITORIO_BASE.mkdirs();
+
+            if (created) {
+                // Muestra un mensaje informativo en lugar de lanzar un error.
+                showAlert(AlertType.INFORMATION, "Carpeta Creada",
+                        "¡Bienvenido!\nEl repositorio de archivos fue creado exitosamente en:\n" +
+                                REPOSITORIO_BASE.getAbsolutePath());
+            }
+            return REPOSITORIO_BASE.exists(); // Verifica que la creación haya sido exitosa
+
+        } catch (SecurityException e) {
+            showAlert(AlertType.ERROR, "Error de Permisos",
+                    "No se pudo crear el directorio del repositorio debido a un problema de permisos: " + e.getMessage());
+            return false;
+        }
+    }
     // method auxiliar para cargar archivos de un directorio en la TableView
     private void cargarDetallesCarpeta(File directorio) {
         fileTableView.getItems().clear();
@@ -696,6 +725,14 @@ public class CatalogManagerController {
     public void refrescarVistaCatalogo() {
         System.out.println("Refrescando la vista del catálogo...");
 
+        // 🚨 FIX CRÍTICO: Asegurar que el repositorio exista antes de intentar leerlo.
+        if (!ensureRepositoryExists()) {
+            // Si falla la creación (ej. por permisos), detener la carga del catálogo.
+            folderTreeView.setRoot(null);
+            fileTableView.getItems().clear();
+            return;
+        }
+
         File previouslySelectedDirectory = null;
         TreeItem<File> selectedItem = folderTreeView.getSelectionModel().getSelectedItem();
         if (selectedItem != null) {
@@ -712,7 +749,7 @@ public class CatalogManagerController {
             if (itemToSelect != null) {
                 folderTreeView.getSelectionModel().select(itemToSelect);
                 TreeItem<File> parent = itemToSelect.getParent();
-                while(parent != null && !parent.equals(rootItem)){
+                while (parent != null && !parent.equals(rootItem)) {
                     parent.setExpanded(true);
                     parent = parent.getParent();
                 }
@@ -730,10 +767,6 @@ public class CatalogManagerController {
             }
 
             System.out.println("✅ Vista de Repositorio refrescada.");
-        } else {
-            showAlert(AlertType.ERROR, "Error de Repositorio", "El directorio base del repositorio no existe o no es accesible en: " + REPOSITORIO_BASE.getAbsolutePath());
-            folderTreeView.setRoot(null);
-            fileTableView.getItems().clear();
         }
     }
 

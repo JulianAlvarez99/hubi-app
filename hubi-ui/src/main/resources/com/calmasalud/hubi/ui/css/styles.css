@@ -161,6 +161,12 @@
 
 .readonly-textfield {
     -fx-background-color: -fx-color-bg-medium; /* Fondo medio (gris claro) */
+    -fx-text-fill: #000000 !important;
+    -fx-opacity: 1;
+}
+.text-field:disabled {
+    -fx-opacity: 1.0;
+    -fx-text-fill: #000000;
 }
 
 /* Estilo base para los VBox raíz de los modales */

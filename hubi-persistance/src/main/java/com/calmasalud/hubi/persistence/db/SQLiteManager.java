@@ -8,23 +8,35 @@ import java.sql.Statement;
 
 public class SQLiteManager {
 
-    private static final String DB_FILE = "jdbc:sqlite:hubi_catalog.db";
-
-    public static Connection getConnection() throws SQLException {
+    //private static final String DB_FILE = "jdbc:sqlite:hubi_catalog.db";
+    private final String dbUrl;
+    public SQLiteManager(String dbFileName) {
+        // Formato JDBC SQLite: jdbc:sqlite:nombre_archivo.db
+        this.dbUrl = "jdbc:sqlite:" + dbFileName;
+    }
+    public Connection getConnection() throws SQLException {
         // Establece la conexión. El archivo .db se crea si no existe.
-        return DriverManager.getConnection(DB_FILE);
+        return DriverManager.getConnection(this.dbUrl);
     }
 
+
     public static void initializeDatabase() {
-        try (Connection conn = getConnection();
+        // Se utiliza una URL local estática para la inicialización inicial
+        String staticDbUrl = "jdbc:sqlite:hubi_catalog.db";
+
+        try (Connection conn = DriverManager.getConnection(staticDbUrl);
              Statement stmt = conn.createStatement()) {
+
+            // ... (Creación de tablas existentes: products, correlatives, master_correlatives, master_products, finished_products_stock, composition, piece_stock)
 
             // 1. Tabla para guardar los productos/piezas (entidad principal)
             String sqlProducts = "CREATE TABLE IF NOT EXISTS products ("
                     + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                     + "code TEXT NOT NULL,"
                     + "name TEXT NOT NULL,"
-                    + "file_extension TEXT NOT NULL"
+                    + "file_extension TEXT NOT NULL,"
+                    + "peso_filamento_gramos REAL NOT NULL DEFAULT 0.0,"
+                    + "usage_detail TEXT DEFAULT ''"
                     + ");";
 
             // 2. Tabla para el control de correlativos (RF8)
@@ -42,7 +54,7 @@ public class SQLiteManager {
             String sqlMasterProducts = "CREATE TABLE IF NOT EXISTS master_products ("
                     + "master_code TEXT PRIMARY KEY,"
                     + "product_prefix TEXT NOT NULL,"
-                    + "product_name TEXT NOT NULL," // <--- ¡Asegúrate de que NO dice UNIQUE aquí!
+                    + "product_name TEXT NOT NULL,"
                     + "description TEXT"
                     + ");";
             // 5.Tabla para el Stock de Productos Finalizados (RF4 - Parte Cuantitativa)
@@ -69,6 +81,22 @@ public class SQLiteManager {
                     + "available_quantity INTEGER NOT NULL DEFAULT 0,"
                     + "PRIMARY KEY (piece_name_base, color_name)" // CLAVE COMPUESTA
                     + ");";
+
+            // 🚨 8. Tabla para el Stock de Insumos (Supply) (HU1)
+            String sqlSupply = "CREATE TABLE IF NOT EXISTS supply (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "code TEXT NOT NULL UNIQUE," +
+                    "name TEXT," +
+                    "tipoFilamento TEXT NOT NULL," +
+                    "colorFilamento TEXT NOT NULL," +
+                    "cantidadDisponible REAL NOT NULL," +
+                    "umbralAlerta REAL NOT NULL" +
+                    ");";
+            String sqlSupplyCorrelatives = "CREATE TABLE IF NOT EXISTS supply_correlatives ("
+                    + "prefix TEXT PRIMARY KEY," // Ej: ROJ-PLA
+                    + "last_number INTEGER NOT NULL DEFAULT 0"
+                    + ");";
+
             stmt.execute(sqlProducts);
             stmt.execute(sqlCorrelatives);
             stmt.execute(sqlMasterCorrelatives);
@@ -76,6 +104,9 @@ public class SQLiteManager {
             stmt.execute(sqlFinishedStock);
             stmt.execute(sqlComposition);
             stmt.execute(sqlPieceStock);
+            stmt.execute(sqlSupply);
+            stmt.execute(sqlSupplyCorrelatives);
+
             System.out.println("✅ Base de datos y tablas inicializadas correctamente.");
 
         } catch (SQLException e) {

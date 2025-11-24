@@ -1,18 +1,22 @@
 package com.calmasalud.hubi.ui.controller;
 
+// --- IMPORTS MODELOS Y REPOSITORIOS ---
 import com.calmasalud.hubi.core.model.MasterProduct;
-import com.calmasalud.hubi.core.model.MasterProductView; // Necesario para acceder a stock/precio
+import com.calmasalud.hubi.core.model.MasterProductView;
 import com.calmasalud.hubi.core.model.PieceStockColorView;
-import com.calmasalud.hubi.core.model.Product;           // Necesario para las piezas
+import com.calmasalud.hubi.core.model.Product;
+import com.calmasalud.hubi.core.model.Supply;
 import com.calmasalud.hubi.core.repository.IMasterProductRepository;
 import com.calmasalud.hubi.core.repository.IProductCompositionRepository;
 import com.calmasalud.hubi.core.repository.IProductRepository;
+import com.calmasalud.hubi.core.repository.ISupplyRepository;
 import com.calmasalud.hubi.core.service.CatalogService;
 import com.calmasalud.hubi.persistence.repository.MasterProductRepositorySQLite;
 import com.calmasalud.hubi.persistence.repository.ProductCompositionRepositorySQLite;
 import com.calmasalud.hubi.persistence.repository.ProductRepositorySQLite;
+import com.calmasalud.hubi.persistence.repository.SupplyRepositorySQLite;
 
-// --- Imports de JavaFX ---
+// --- IMPORTS JAVAFX ---
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -24,9 +28,12 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.input.MouseButton;
+import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
-import javafx.util.Duration;
 
 import java.io.IOException;
 import java.util.List;
@@ -34,61 +41,80 @@ import java.util.Optional;
 
 public class InventarioController {
 
-    // --- DEPENDENCIAS ---
+    // =====================================================================
+    // 1. DEPENDENCIAS
+    // =====================================================================
     private final IMasterProductRepository masterProductRepository = new MasterProductRepositorySQLite();
     private final IProductRepository productRepository = new ProductRepositorySQLite();
     private final IProductCompositionRepository productCompositionRepository = new ProductCompositionRepositorySQLite();
-    private final CatalogService catalogService = new CatalogService(productRepository, masterProductRepository, productCompositionRepository);
-    // ----------------------
+    private final ISupplyRepository supplyRepository = new SupplyRepositorySQLite();
 
-    // ¡SINCRONIZACIÓN DE TIPOS A TREE TABLE VIEW!
+    private CatalogService catalogService; // Se inyecta desde MainController
+
+    // Lista observable para la tabla de insumos
+    private final ObservableList<Supply> supplyData = FXCollections.observableArrayList();
+
+    // =====================================================================
+    // 2. CAMPOS FXML (VISTAS Y CONTENEDORES)
+    // =====================================================================
+    @FXML private VBox productContentArea;      // Contenedor de Productos
+    @FXML private AnchorPane supplyContentArea; // Contenedor de Insumos
+
+    // --- TABLA DE PRODUCTOS (ORIGINAL) ---
     @FXML private TreeTableView<MasterProduct> productStockTable;
     @FXML private TreeTableColumn<MasterProduct, String> colProductoNombre;
     @FXML private TreeTableColumn<MasterProduct, String> colProductoCodigo;
     @FXML private TreeTableColumn<MasterProduct, Number> colProductoDisponible;
     @FXML private TreeTableColumn<MasterProduct, Number> colProductoPrecio;
 
-    // ... (El resto de las columnas de Insumos, también ajustadas a TreeTableColumn) ...
-    @FXML private TreeTableColumn<?, ?> colInsumoTipo;
-    @FXML private TreeTableColumn<?, ?> colInsumoColor;
-    @FXML private TreeTableColumn<?, ?> colInsumoCantidad;
-    @FXML private TreeTableColumn<?, ?> colInsumoUmbral;
+    // --- TABLA DE INSUMOS (NUEVA) ---
+    @FXML private TableView<Supply> tablaInsumos;
+    @FXML private TableColumn<Supply, String> colInsumoCodigo;
+    @FXML private TableColumn<Supply, String> colInsumoNombre;
+    @FXML private TableColumn<Supply, String> colInsumoTipo;
+    @FXML private TableColumn<Supply, String> colInsumoColor;
+    @FXML private TableColumn<Supply, Double> colInsumoStock;
+    @FXML private TableColumn<Supply, Double> colInsumoUmbral;
 
+    // --- BOTONES Y UI INSUMOS ---
+    @FXML private Button btnAgregarInsumo;
+    @FXML private Button btnModificarInsumo;
+    @FXML private Button btnEliminarInsumo;
+    @FXML private Label lblSelectionHint;
+
+
+    // =====================================================================
+    // 3. INICIALIZACIÓN
+    // =====================================================================
     @FXML
     public void initialize() {
         System.out.println("Controlador de Inventario inicializado.");
 
-        // 1. Configuración de columnas
+        // --- A. CONFIGURACIÓN DE COLUMNAS PRODUCTOS (Lógica Original) ---
         colProductoNombre.setCellValueFactory(cellData -> {
             MasterProduct item = cellData.getValue().getValue();
             if (item == null) return null;
 
-            // Comprobar si el nodo es una Pieza (usamos la lógica de longitud del código)
-            // La Pieza (Hijo) tiene un código de 9 dígitos (LLAROJ001), el Padre tiene 5 (LLA01).
+            // Lógica para mostrar nombre de pieza vs producto
             if (item.getMasterCode() != null && item.getMasterCode().length() > 5) {
-                // Si es un nodo hijo, el nombre original del archivo está guardado en MasterProduct.productName.
                 String originalFileName = item.getProductName();
                 int dotIndex = originalFileName.lastIndexOf('.');
-                // Devolver solo el Nombre Base (Ej: Llavero Olla x 8 V3_PLA_1h59m)
                 return new SimpleStringProperty(dotIndex != -1 ? originalFileName.substring(0, dotIndex) : originalFileName);
             }
-            // Si es el nodo padre, devolver el nombre del producto (Ej: Llavero)
             return new SimpleStringProperty(item.getProductName());
         });
 
         colProductoCodigo.setCellValueFactory(cellData -> {
             MasterProduct item = cellData.getValue().getValue();
-            if (item == null) return null;
-            return new SimpleStringProperty(item.getMasterCode());
+            return (item == null) ? null : new SimpleStringProperty(item.getMasterCode());
         });
 
         colProductoDisponible.setCellValueFactory(cellData -> {
             MasterProduct item = cellData.getValue().getValue();
             if (item instanceof MasterProductView) {
-                // Muestra la cantidad real del MasterProductView (que puede ser el stock final o el stock de pieza)
                 return new SimpleObjectProperty<>(((MasterProductView) item).getQuantityAvailable());
             }
-            return new SimpleObjectProperty<>(0); // Fallback
+            return new SimpleObjectProperty<>(0);
         });
 
         colProductoPrecio.setCellValueFactory(cellData -> {
@@ -99,13 +125,81 @@ public class InventarioController {
             return new SimpleObjectProperty<>(null);
         });
 
-        loadProductStockData();
+        // --- B. CONFIGURACIÓN DE COLUMNAS INSUMOS (Nueva Lógica) ---
+        if (tablaInsumos != null) {
+            colInsumoCodigo.setCellValueFactory(new PropertyValueFactory<>("code"));
+            colInsumoNombre.setCellValueFactory(new PropertyValueFactory<>("name"));
+            colInsumoTipo.setCellValueFactory(new PropertyValueFactory<>("tipoFilamento"));
+            colInsumoColor.setCellValueFactory(new PropertyValueFactory<>("colorFilamento"));
+            colInsumoStock.setCellValueFactory(new PropertyValueFactory<>("cantidadDisponible"));
+            colInsumoUmbral.setCellValueFactory(new PropertyValueFactory<>("umbralAlerta"));
+
+            tablaInsumos.setItems(supplyData);
+
+            // Doble clic para editar
+            tablaInsumos.setOnMouseClicked(event -> {
+                if (event.getButton().equals(MouseButton.PRIMARY) && event.getClickCount() == 2) {
+                    handleManageSupplyStock(null);
+                }
+            });
+        }
     }
 
+    /**
+     * Inyección de dependencia y Configuración Inicial.
+     * Llamado desde MainController.
+     */
+    public void setCatalogService(CatalogService catalogService) {
+        this.catalogService = catalogService;
+
+        // Al inyectar el servicio, forzamos que se muestre la vista de Productos por defecto
+        // y cargamos los datos.
+        updateViewVisibility(true);
+    }
+
+    /**
+     * Método Público llamado por MainController para cambiar la vista activa.
+     * @param showProducts true = Productos, false = Insumos
+     */
+    public void setActiveView(boolean showProducts) {
+        updateViewVisibility(showProducts);
+    }
+
+    /**
+     * Lógica central de visibilidad y carga de datos.
+     */
+    private void updateViewVisibility(boolean showProducts) {
+        if (productContentArea != null && supplyContentArea != null) {
+            // 1. Alternar visibilidad de contenedores
+            productContentArea.setVisible(showProducts);
+            productContentArea.setManaged(showProducts);
+
+            supplyContentArea.setVisible(!showProducts);
+            supplyContentArea.setManaged(!showProducts);
+
+            // 2. Cargar los datos correspondientes a la vista activa
+            if (catalogService != null) {
+                if (showProducts) {
+                    loadProductStockData();
+                } else {
+                    loadSupplyData();
+                }
+            }
+        }
+    }
+
+    // =====================================================================
+    // 4. MÉTODOS DE CARGA DE DATOS
+    // =====================================================================
+
+    /**
+     * Carga datos de Productos (Árbol jerárquico) con filtro .gcode.
+     */
     private void loadProductStockData() {
+        if (productStockTable == null) return;
+
         try {
             List<MasterProduct> masterProductsWithStock = masterProductRepository.findAll();
-
             TreeItem<MasterProduct> rootItem = new TreeItem<>(null);
 
             for (MasterProduct masterProduct : masterProductsWithStock) {
@@ -114,40 +208,38 @@ public class InventarioController {
 
                 List<Product> pieces = productRepository.findPiecesByMasterPrefix(productView.getProductPrefix());
 
-                // --- BUCLE NIVEL 2: Pieza Lógica (Sumatoria de Stock de todos los colores) ---
                 for (Product piece : pieces) {
+                    // 🚨 FILTRO: Solo mostrar archivos .gcode
+                    if (piece.getFileExtension() == null || !piece.getFileExtension().equalsIgnoreCase(".gcode")) {
+                        continue;
+                    }
+
                     String pieceNameBase = piece.getName().substring(0, piece.getName().lastIndexOf('.'));
                     int totalPieceStock = productRepository.getPieceStockQuantity(pieceNameBase);
 
-                    // Creamos el NODO HIJO (MasterProductView para tener stock y ser expandible)
                     MasterProductView pieceNodeData = new MasterProductView(
                             piece.getCode(),
                             productView.getProductPrefix(),
-                            piece.getName(), // Nombre completo (Ej: Llave Olla x 8 V3_PLA_1h59m.gcode)
+                            piece.getName(),
                             "Archivo: " + piece.getFileExtension(),
-                            totalPieceStock, // <--- STOCK TOTAL de la pieza (suma de todos los colores)
+                            totalPieceStock,
                             0.0
                     );
                     TreeItem<MasterProduct> pieceNode = new TreeItem<>(pieceNodeData);
 
-                    // --- BUCLE NIVEL 3: Desglose por Color ---
                     List<PieceStockColorView> colorStocks = productRepository.getStockByPieceNameBase(pieceNameBase);
 
                     for (PieceStockColorView colorStock : colorStocks) {
-
-                        // Creamos un MasterProductView STUB para el NODO NIETO (Color y Cantidad)
                         MasterProductView colorNodeData = new MasterProductView(
-                                piece.getCode() + "-" + colorStock.getColorName(), // Código único para este color
+                                piece.getCode() + "-" + colorStock.getColorName(),
                                 productView.getProductPrefix(),
-                                colorStock.getColorName(), // Nombre del color (Ej: ROJO PLA)
+                                colorStock.getColorName(),
                                 "Stock por Color",
-                                colorStock.getQuantityAvailable(), // <-- STOCK REAL DEL COLOR
+                                colorStock.getQuantityAvailable(),
                                 0.0
                         );
-                        // Añadir el nodo de color al nodo de pieza
                         pieceNode.getChildren().add(new TreeItem<>(colorNodeData));
                     }
-
                     masterNode.getChildren().add(pieceNode);
                 }
                 rootItem.getChildren().add(masterNode);
@@ -158,19 +250,36 @@ public class InventarioController {
             rootItem.setExpanded(true);
 
         } catch (Exception e) {
-            System.err.println("❌ Error al cargar datos del stock y piezas: " + e.getMessage());
             e.printStackTrace();
             productStockTable.setRoot(new TreeItem<>(null));
-            showAlert(AlertType.ERROR, "Error de Carga", "No se pudieron cargar los productos y sus piezas del catálogo. Razón: " + e.getMessage());
         }
     }
 
-    // --- MÉTODOS DE ACCIÓN ---
-
     /**
-     * ACCIÓN 1: Aumentar Stock de Producto Finalizado (RF4).
-     * Se dispara al presionar "AGREGAR STOCK FINAL".
+     * Carga datos de Insumos (Lista simple).
      */
+    private void loadSupplyData() {
+        if (catalogService == null) return;
+
+        try {
+            List<Supply> supplies = catalogService.listAllSupplies();
+            supplyData.setAll(supplies);
+
+            boolean isEmpty = supplyData.isEmpty();
+            if (btnModificarInsumo != null) btnModificarInsumo.setDisable(isEmpty);
+            if (btnEliminarInsumo != null) btnEliminarInsumo.setDisable(isEmpty);
+            if (lblSelectionHint != null) lblSelectionHint.setVisible(!isEmpty);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            showAlert(AlertType.ERROR, "Error", "No se pudieron cargar los insumos.");
+        }
+    }
+
+    // =====================================================================
+    // 5. HANDLERS DE ACCIÓN (PRODUCTOS - LÓGICA ORIGINAL)
+    // =====================================================================
+
     @FXML
     private void handleAddProductStock(ActionEvent event) {
         // 1. Obtener y validar selección
@@ -181,7 +290,7 @@ public class InventarioController {
             return;
         }
 
-        // Validación jerárquica: Debe ser el nodo Padre (su padre es la raíz invisible, cuyo .getValue() es null).
+        // Validación jerárquica
         if (selectedItem.getParent() == null || selectedItem.getParent().getValue() != null) {
             showAlert(AlertType.WARNING, "Acción Inválida", "Solo puede agregar stock finalizado seleccionando la línea principal (Producto Maestro).");
             return;
@@ -191,13 +300,38 @@ public class InventarioController {
         String masterCode = selectedProduct.getMasterCode();
 
         try {
-            // 2. VERIFICACIÓN CLAVE: ¿Existe la composición (BOM)? (Punto 1 del requisito)
+            // 2. VERIFICACIÓN: ¿Existe la composición (BOM)?
             boolean compositionExists = productCompositionRepository.compositionExists(masterCode);
+            boolean openCompositionFlow = !compositionExists;
 
-            if (!compositionExists) {
-                System.out.println("⚠️ Composición no definida. Iniciando definición de BOM.");
+            // 🚨 NUEVA LÓGICA: Si existe, preguntar si se desea editar
+            if (compositionExists) {
+                Alert alert = new Alert(AlertType.CONFIRMATION);
+                alert.setTitle("Definición de Producto");
+                alert.setHeaderText("La composición de este producto ya está definida.");
+                alert.setContentText("¿Desea mantener la composición actual o modificar qué piezas conforman este producto?");
+                alert.getDialogPane().getStyleClass().add("hubi-dialog");
 
-                // Obtener las piezas/archivos cargados para este producto (para llenar el modal BOM)
+                ButtonType btnContinuar = new ButtonType("Mantener Actual", ButtonBar.ButtonData.OK_DONE);
+                ButtonType btnEditar = new ButtonType("Modificar Composición");
+                ButtonType btnCancelar = new ButtonType("Cancelar", ButtonBar.ButtonData.CANCEL_CLOSE);
+
+                alert.getButtonTypes().setAll(btnContinuar, btnEditar, btnCancelar);
+
+                Optional<ButtonType> result = alert.showAndWait();
+
+                if (result.isEmpty() || result.get() == btnCancelar) {
+                    return; // Cancelar operación
+                }
+                if (result.get() == btnEditar) {
+                    openCompositionFlow = true; // Forzar apertura del editor
+                }
+            }
+
+            // --- FLUJO DE COMPOSICIÓN (Si es nuevo o se eligió editar) ---
+            if (openCompositionFlow) {
+                System.out.println("ℹ️ Abriendo editor de composición (BOM).");
+
                 String productPrefix = selectedProduct.getProductPrefix();
                 List<Product> rawPieces = productRepository.findPiecesByMasterPrefix(productPrefix);
 
@@ -206,12 +340,31 @@ public class InventarioController {
                     return;
                 }
 
-                // --- Cargar y mostrar modal de COMPOSICIÓN (CompositionModal) ---
+                // Lógica de Deduplicación (Gcode > 3mf > Stl)
+                List<Product> uniquePieces = new java.util.ArrayList<>(
+                        rawPieces.stream()
+                                .collect(java.util.stream.Collectors.toMap(
+                                        p -> {
+                                            String name = p.getName();
+                                            return name.contains(".") ? name.substring(0, name.lastIndexOf('.')) : name;
+                                        },
+                                        p -> p,
+                                        (existing, replacement) -> {
+                                            if (replacement.getFileExtension() != null && replacement.getFileExtension().equalsIgnoreCase(".gcode")) {
+                                                return replacement;
+                                            }
+                                            return existing;
+                                        }
+                                ))
+                                .values()
+                );
+
+                // Cargar modal
                 FXMLLoader loaderComp = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/CompositionModal.fxml"));
                 Parent rootComp = loaderComp.load();
                 CompositionController compController = loaderComp.getController();
 
-                compController.setCompositionData(masterCode, selectedProduct.getProductName(), rawPieces);
+                compController.setCompositionData(masterCode, selectedProduct.getProductName(), uniquePieces);
 
                 Stage modalStageComp = new Stage();
                 modalStageComp.setTitle("Definir Composición (BOM) - " + selectedProduct.getProductName());
@@ -219,15 +372,14 @@ public class InventarioController {
                 modalStageComp.setScene(new Scene(rootComp));
                 modalStageComp.showAndWait();
 
-                // Si el usuario canceló la composición, salimos.
+                // Si canceló la edición y la composición NO existía, no podemos seguir.
+                // Si canceló la edición pero YA existía una, asumimos que no quiere seguir tampoco.
                 if (!compController.isCompositionSaved()) {
-                    showAlert(AlertType.INFORMATION, "Cancelado", "La adición de stock fue cancelada. Debe definir la composición para continuar.");
                     return;
                 }
             }
 
             // 3. SOLICITAR LA CANTIDAD A AGREGAR (AddStockModal)
-
             FXMLLoader loaderStock = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/AddStockModal.fxml"));
             Parent rootStock = loaderStock.load();
             AddStockController stockController = loaderStock.getController();
@@ -240,23 +392,15 @@ public class InventarioController {
             modalStageStock.setScene(new Scene(rootStock));
             modalStageStock.showAndWait();
 
-            // 4. Procesar resultado de cantidad de stock
+            // 4. Procesar resultado
             if (stockController.isAccepted()) {
                 int quantity = stockController.getCantidad();
-
-                // --- INICIO DEL BLOQUE CRÍTICO DE VERIFICACIÓN (Punto 2) ---
-
-                // 5. VERIFICAR DISPONIBILIDAD DE PIEZAS (Lanza IOException si faltan)
-                // Usamos el servicio de catálogo para verificar el stock
                 catalogService.verifyPieceAvailability(masterCode, quantity);
-
-                // 6. AUMENTAR STOCK FINAL (SOLO se ejecuta si la verificación NO lanza excepción)
                 masterProductRepository.increaseStock(masterCode, quantity);
 
-                // Confirmar y Recargar
                 showAlert(AlertType.INFORMATION, "Éxito",
                         "Se agregaron +" + quantity + " unidades a la existencia de " + selectedProduct.getProductName());
-                loadProductStockData(); // Recargar datos
+                loadProductStockData();
             }
 
         } catch (IOException e) {
@@ -269,236 +413,81 @@ public class InventarioController {
         }
     }
 
-    /**
-     * ACCIÓN 2: Modificar Stock de Pieza Individual (G-code).
-     * Se dispara al presionar "MODIFICAR PIEZA (G-Code)".
-     */
     @FXML
-    private void handleModifyPieceStock(ActionEvent event) {
+    private void handleDeleteProductStock(ActionEvent event) {
         TreeItem<MasterProduct> selectedItem = productStockTable.getSelectionModel().getSelectedItem();
 
-        if (selectedItem == null || selectedItem.getValue() == null || selectedItem.getParent() == null) {
-            showAlert(AlertType.WARNING, "Selección Requerida", "Seleccione una Pieza (Línea Hijo) para registrar su producción individual.");
+        if (selectedItem == null || selectedItem.getValue() == null) {
+            showAlert(AlertType.WARNING, "Selección Requerida", "Seleccione un Producto Maestro (Línea Padre) para eliminar stock por composición.");
             return;
         }
 
-        MasterProduct selectedPiece = selectedItem.getValue();
-
-        try {
-            // Cargar la ventana modal de Carga de Pieza
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/AddPieceStockModal.fxml"));
-            Parent root = loader.load();
-            AddPieceStockController controller = loader.getController();
-
-            // Pasar datos de la pieza al controlador
-            controller.setPieceData(selectedPiece.getMasterCode(), selectedPiece.getProductName());
-
-            Stage modalStage = new Stage();
-            modalStage.setTitle("Registro de Producción");
-            modalStage.initModality(Modality.APPLICATION_MODAL);
-            modalStage.setScene(new Scene(root));
-            modalStage.showAndWait();
-
-            // Lógica de Stock de Pieza: Aquí iría la implementación de RF9 (consumo de filamento)
-            if (controller.isProductionRegistered()) {
-                // Future: Llamar a logicService.registerPiece(pieceCode, controller.getSelectedColors());
-                loadProductStockData(); // Recargar para ver los cambios de stock si se implementan
-            }
-
-        } catch (IOException e) {
-            showAlert(AlertType.ERROR, "Error de Interfaz", "No se pudo cargar la ventana de registro de pieza: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-    private Optional<ButtonType> showAlertConfirmation(String title, String content) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        DialogPane dialogPane = alert.getDialogPane();
-        dialogPane.getStyleClass().add("hubi-dialog"); // Asumimos que este estilo existe en styles.css
-        return alert.showAndWait();
-    }
-    @FXML
-    private void handleDeletePiece(ActionEvent event) {
-        TreeItem<MasterProduct> selectedItem = productStockTable.getSelectionModel().getSelectedItem();
-
-        if (selectedItem == null || selectedItem.getValue() == null || selectedItem.getParent() == null) {
-            showAlert(AlertType.WARNING, "Selección Requerida", "Seleccione una Pieza (Línea Hijo) para eliminarla.");
-            return;
-        }
-
-        // Validación jerárquica: Debe ser un nodo hijo (su padre NO es la raíz invisible)
-        if (selectedItem.getParent().getValue() == null) {
-            showAlert(AlertType.WARNING, "Acción Inválida", "Solo puede eliminar piezas individuales.");
-            return;
-        }
-
-        MasterProduct pieceToDelete = selectedItem.getValue();
-        String pieceCode = pieceToDelete.getMasterCode();
-
-        // 2. Confirmación (Usa el método auxiliar que acabamos de implementar)
-        Optional<ButtonType> result = showAlertConfirmation("Confirmar Eliminación de Pieza",
-                "¿Está seguro de eliminar la pieza con código '" + pieceCode + "'?\nSe eliminará el archivo del catálogo y su registro en la BD.");
-
-        if (result.isPresent() && result.get() == ButtonType.OK) {
-            try {
-                // 3. Llamar al servicio para eliminar por código
-                // ESTO RESUELVE EL ERROR DE COMPILACIÓN EN LA LLAMADA AL SERVICIO
-                catalogService.deletePieceByCode(pieceCode);
-
-                showAlert(AlertType.INFORMATION, "Éxito", "Pieza '" + pieceCode + "' eliminada correctamente.");
-                loadProductStockData(); // Recargar el TreeTableView para reflejar el cambio
-
-            } catch (IOException e) {
-                showAlert(AlertType.ERROR, "Error de Eliminación", "No se pudo eliminar la pieza: " + e.getMessage());
-            } catch (Exception e) {
-                showAlert(AlertType.ERROR, "Error Inesperado", "Ocurrió un error al eliminar la pieza: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }
-    }
-    /**
-     * ACCIÓN: Elimina una unidad del stock disponible (Decrease Stock).
-     * Nota: Esto no elimina la PIEZA ni el PRODUCTO MAESTRO, solo el contador de unidades.
-     */
-    @FXML
-    private void handleRemoveStockUnit(ActionEvent event) {
-        // 1. Obtener y validar selección de nodo Padre
-        TreeItem<MasterProduct> selectedItem = productStockTable.getSelectionModel().getSelectedItem();
-
-        if (selectedItem == null || selectedItem.getValue() == null || selectedItem.getParent() != null) {
-            showAlert(AlertType.WARNING, "Selección Requerida", "Seleccione un Producto Maestro (Línea Padre) para eliminar stock.");
+        // Validación jerárquica: Debe ser el nodo Padre (su padre es la raíz invisible, cuyo .getValue() es null)
+        if (selectedItem.getParent() == null || selectedItem.getParent().getValue() != null) {
+            showAlert(AlertType.WARNING, "Acción Inválida", "Solo puede eliminar stock por composición seleccionando la línea principal (Producto Maestro).");
             return;
         }
 
         MasterProduct selectedProduct = selectedItem.getValue();
-        String masterCode = selectedProduct.getMasterCode();
 
-        // Asumimos que es MasterProductView para obtener el stock actual
-        int currentAvailable = ((MasterProductView)selectedProduct).getQuantityAvailable();
-
-
-        // 2. Solicitar la cantidad a eliminar (usamos TextInputDialog, como en handleAddProductStock)
-        TextInputDialog dialog = new TextInputDialog("1");
-        dialog.setTitle("Eliminar Stock");
-        dialog.setHeaderText("Producto: " + selectedProduct.getProductName());
-        dialog.setContentText("Ingrese la cantidad de unidades a eliminar (Disponibles: " + currentAvailable + "):");
-        dialog.getDialogPane().getStyleClass().add("hubi-dialog");
-
-        Optional<String> result = dialog.showAndWait();
-
-        if (result.isPresent()) {
-            int quantityToRemove = 0;
-            try {
-                // 3. Validación y Conversión
-                quantityToRemove = Integer.parseInt(result.get());
-                if (quantityToRemove <= 0 || quantityToRemove > currentAvailable) {
-                    showAlert(AlertType.ERROR, "Error de Entrada",
-                            "La cantidad a eliminar debe ser mayor a 0 y no puede exceder las unidades disponibles (" + currentAvailable + ").");
-                    return;
-                }
-
-                // 4. LÓGICA RF4: Disminuir stock
-                // Llama al método que verifica el stock antes de restar
-                masterProductRepository.decreaseStock(masterCode, quantityToRemove);
-
-                showAlert(AlertType.INFORMATION, "Éxito", "Se eliminaron " + quantityToRemove + " unidades del stock.");
-                loadProductStockData(); // Recargar datos
-
-            } catch (NumberFormatException e) {
-                showAlert(AlertType.ERROR, "Error de Entrada", "La entrada no es un número válido.");
-            } catch (RuntimeException e) {
-                // Captura el error de 'Stock insuficiente' de la capa de persistencia
-                showAlert(AlertType.ERROR, "Error de Eliminación",
-                        "No se pudo eliminar el stock. Razón: " + e.getMessage());
-            }
-        }
-    }
-
-    // --- Manejadores de eventos de Insumos (Stubs) ---
-    @FXML
-    private void handleAddSupply(ActionEvent event) {
-        System.out.println("Acción: Agregar Insumo (Futuro RF5)");
-    }
-
-    @FXML
-    private void handleRemoveSupply(ActionEvent event) {
-        System.out.println("Acción: Eliminar Insumo (Futuro RF5)");
-    }
-
-    @FXML
-    private void handleModifySupply(ActionEvent event) {
-        System.out.println("Acción: Modificar Insumo (Futuro RF5)");
-    }
-
-    // Método auxiliar para mostrar alertas
-    private void showAlert(AlertType type, String title, String content) {
-        Alert alert = new Alert(type);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        // Asegúrate de tener este import: import javafx.scene.control.DialogPane;
-        alert.getDialogPane().getStyleClass().add("hubi-dialog");
-        alert.showAndWait();
-    }
-    @FXML
-    private void handleDeletePieceStock(ActionEvent event) {
-        TreeItem<MasterProduct> selectedItem = productStockTable.getSelectionModel().getSelectedItem();
-
-        if (selectedItem == null || selectedItem.getValue() == null) {
-            showAlert(AlertType.WARNING, "Selección Requerida", "Seleccione una Pieza (Línea Hijo) para eliminar stock.");
-            return;
-        }
-
-        // La acción debe operar en el nivel de PIEZA (Nodo Hijo)
-        if (selectedItem.getParent() == null || selectedItem.getParent().getValue() == null) {
-            showAlert(AlertType.WARNING, "Acción Inválida", "Solo puede eliminar stock individual de las Piezas (Nivel Hijo).");
-            return;
-        }
-
-        MasterProduct selectedPiece = selectedItem.getValue();
-        // Asumimos que la pieza seleccionada en la UI es una MasterProductView o un nodo hijo que queremos borrar.
-
-        // 1. Cargar el modal de eliminación de stock de pieza (RemovePieceStockController)
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/RemovePieceStockModal.fxml"));
+            // 1. Cargar el FXML y obtener el controlador del modal
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/RemoveProductStockModal.fxml"));
             Parent root = loader.load();
-            RemovePieceStockController controller = loader.getController();
+            RemoveProductStockController controller = loader.getController();
 
-            // 2. Pasar el nombre de la pieza (sin extensión) y su código
-            String pieceNameBase = selectedPiece.getProductName().substring(0, selectedPiece.getProductName().lastIndexOf('.'));
+            // 2. Inyectar dependencias (usando las ya definidas en InventarioController)
+            controller.setDependencies(catalogService, productCompositionRepository, productRepository);
 
-            // NOTA: Para eliminar, necesitas saber qué COLORES tiene stock (usar getStockByPieceNameBase para llenar el ComboBox)
-            // Asumo que el RemovePieceStockController manejará esta lógica.
+            // 3. Inicializar datos del modal
+            // Nota: MasterProductView hereda de MasterProduct, por lo que selectedProduct funciona.
+            controller.initData(selectedProduct);
 
-            controller.setPieceData(selectedPiece.getMasterCode(), pieceNameBase);
-
+            // 4. Mostrar la ventana emergente (modal)
             Stage modalStage = new Stage();
-            modalStage.setTitle("Eliminar Stock de Pieza");
+            modalStage.setTitle("Eliminar Stock de Producto - " + selectedProduct.getProductName());
             modalStage.initModality(Modality.APPLICATION_MODAL);
             modalStage.setScene(new Scene(root));
             modalStage.showAndWait();
 
-            // 3. Procesar la eliminación
-            if (controller.isRemovalConfirmed()) {
-                String color = controller.getSelectedColor();
-                int quantity = controller.getQuantityToRemove();
-
-                // Llama al método que acabamos de implementar
-                productRepository.decreasePieceStockQuantity(pieceNameBase, color, quantity);
-
-                showAlert(AlertType.INFORMATION, "Éxito",
-                        quantity + " unidades de " + pieceNameBase + " (" + color + ") eliminadas.");
-                loadProductStockData();
-            }
+            // 5. Recargar datos después de cerrar el modal para reflejar los cambios
+            loadProductStockData();
 
         } catch (IOException e) {
-            showAlert(AlertType.ERROR, "Error de Interfaz", "No se pudo cargar la ventana de eliminación de stock: " + e.getMessage());
-        } catch (RuntimeException e) {
-            showAlert(AlertType.ERROR, "Error de Stock", "Fallo: " + e.getMessage());
+            showAlert(AlertType.ERROR, "Error de Interfaz", "No se pudo cargar la ventana de deducción de stock: " + e.getMessage());
+            e.printStackTrace();
         }
     }
+
+    @FXML
+    private void handleModifyPieceStock(ActionEvent event) {
+        TreeItem<MasterProduct> selectedItem = productStockTable.getSelectionModel().getSelectedItem();
+        // Validar selección: Debe ser una pieza (nodo hijo directo de raíz o intermedio)
+        if (selectedItem == null || selectedItem.getValue().getMasterCode().length() <= 5) {
+            showAlert(AlertType.WARNING, "Selección", "Seleccione una Pieza (Línea Hija) para agregar stock individual.");
+            return;
+        }
+        // Evitar selección de nivel color (si aplica)
+        if (!selectedItem.getChildren().isEmpty() && selectedItem.getValue().getProductName().equals("Stock por Color")) {
+            return;
+        }
+
+        try {
+            MasterProduct piece = selectedItem.getValue();
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/AddPieceStockModal.fxml"));
+            Parent root = loader.load();
+            AddPieceStockController controller = loader.getController();
+            controller.setCatalogService(catalogService);
+            controller.setPieceData(piece.getMasterCode(), piece.getProductName());
+
+            Stage stage = new Stage();
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.setScene(new Scene(root));
+            stage.showAndWait();
+            loadProductStockData();
+        } catch (IOException e) { e.printStackTrace(); }
+    }
+
     @FXML
     private void handleDeleteStockColorUnit(ActionEvent event) {
         TreeItem<MasterProduct> selectedItem = productStockTable.getSelectionModel().getSelectedItem();
@@ -580,53 +569,112 @@ public class InventarioController {
             }
         }
     }
-    /**
-     * ACCIÓN: Abre el modal para eliminar stock de Producto Maestro,
-     * descontando piezas por color según la composición.
-     */
+
+
+    // =====================================================================
+    // 6. HANDLERS DE ACCIÓN (INSUMOS - NUEVA LÓGICA)
+    // =====================================================================
+
     @FXML
-    private void handleDeleteProductStock(ActionEvent event) {
-        TreeItem<MasterProduct> selectedItem = productStockTable.getSelectionModel().getSelectedItem();
-
-        if (selectedItem == null || selectedItem.getValue() == null) {
-            showAlert(AlertType.WARNING, "Selección Requerida", "Seleccione un Producto Maestro (Línea Padre) para eliminar stock por composición.");
-            return;
-        }
-
-        // Validación jerárquica: Debe ser el nodo Padre (su padre es la raíz invisible, cuyo .getValue() es null)
-        if (selectedItem.getParent() == null || selectedItem.getParent().getValue() != null) {
-            showAlert(AlertType.WARNING, "Acción Inválida", "Solo puede eliminar stock por composición seleccionando la línea principal (Producto Maestro).");
-            return;
-        }
-
-        MasterProduct selectedProduct = selectedItem.getValue();
-
+    private void handleManageSupplyStock(ActionEvent event) {
         try {
-            // 1. Cargar el FXML y obtener el controlador del modal
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/RemoveProductStockModal.fxml"));
-            Parent root = loader.load();
-            RemoveProductStockController controller = loader.getController();
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/AddSupplyModal.fxml"));
+            Parent parent = loader.load();
 
-            // 2. Inyectar dependencias (usando las ya definidas en InventarioController)
-            controller.setDependencies(catalogService, productCompositionRepository, productRepository);
+            AddSupplyController controller = loader.getController();
+            controller.setCatalogService(catalogService);
+            controller.setOnStockUpdated(this::loadSupplyData);
 
-            // 3. Inicializar datos del modal
-            // Nota: MasterProductView hereda de MasterProduct, por lo que selectedProduct funciona.
-            controller.initData(selectedProduct);
+            Supply selectedSupply = tablaInsumos.getSelectionModel().getSelectedItem();
+            if (selectedSupply != null) {
+                controller.setSupplyToEdit(selectedSupply);
+            }
 
-            // 4. Mostrar la ventana emergente (modal)
-            Stage modalStage = new Stage();
-            modalStage.setTitle("Eliminar Stock de Producto - " + selectedProduct.getProductName());
-            modalStage.initModality(Modality.APPLICATION_MODAL);
-            modalStage.setScene(new Scene(root));
-            modalStage.showAndWait();
-
-            // 5. Recargar datos después de cerrar el modal para reflejar los cambios
-            loadProductStockData();
+            Stage stage = new Stage();
+            stage.setTitle("Gestionar Stock de Filamento");
+            stage.setScene(new Scene(parent));
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.showAndWait();
 
         } catch (IOException e) {
-            showAlert(AlertType.ERROR, "Error de Interfaz", "No se pudo cargar la ventana de deducción de stock: " + e.getMessage());
+            showAlert(AlertType.ERROR, "Error", "No se pudo abrir la ventana de gestión.");
             e.printStackTrace();
         }
+    }
+
+
+    @FXML
+    private void handleRemoveSupplyStock(ActionEvent event) {
+        Supply selectedSupply = tablaInsumos.getSelectionModel().getSelectedItem();
+        if (selectedSupply == null) {
+            showAlert(AlertType.WARNING, "Selección", "Seleccione un insumo de la lista.");
+            return;
+        }
+
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/RemoveSupplyModal.fxml"));
+            Parent parent = loader.load();
+
+            RemoveSupplyController controller = loader.getController();
+            controller.setCatalogService(catalogService);
+            controller.setSupply(selectedSupply);
+            controller.setOnStockUpdated(this::loadSupplyData);
+
+            Stage stage = new Stage();
+            stage.setTitle("Descartar Stock");
+            stage.setScene(new Scene(parent));
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.showAndWait();
+
+        } catch (IOException e) {
+            showAlert(AlertType.ERROR, "Error", "No se pudo abrir la ventana de descarte.");
+            e.printStackTrace();
+        }
+    }
+
+    // =====================================================================
+    // 7. UTILIDADES AUXILIARES
+    // =====================================================================
+
+    private void openCompositionModal(MasterProduct product) throws IOException {
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/CompositionModal.fxml"));
+        Parent root = loader.load();
+        CompositionController controller = loader.getController();
+        List<Product> rawPieces = productRepository.findPiecesByMasterPrefix(product.getProductPrefix());
+        controller.setCompositionData(product.getMasterCode(), product.getProductName(), rawPieces);
+
+        Stage stage = new Stage();
+        stage.initModality(Modality.APPLICATION_MODAL);
+        stage.setScene(new Scene(root));
+        stage.showAndWait();
+    }
+
+    private void openAddStockModal(MasterProduct product) throws IOException {
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/AddStockModal.fxml"));
+        Parent root = loader.load();
+        AddStockController controller = loader.getController();
+        controller.setProductName(product.getProductName());
+
+        Stage stage = new Stage();
+        stage.initModality(Modality.APPLICATION_MODAL);
+        stage.setScene(new Scene(root));
+        stage.showAndWait();
+
+        if (controller.isAccepted()) {
+            int qty = controller.getCantidad();
+            catalogService.verifyPieceAvailability(product.getMasterCode(), qty);
+            masterProductRepository.increaseStock(product.getMasterCode(), qty);
+            showAlert(AlertType.INFORMATION, "Éxito", "Stock agregado.");
+            loadProductStockData();
+        }
+    }
+
+    private void showAlert(AlertType type, String title, String content) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.getDialogPane().getStyleClass().add("hubi-dialog");
+        alert.showAndWait();
     }
 }
