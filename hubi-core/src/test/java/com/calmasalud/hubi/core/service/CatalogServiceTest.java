@@ -3,16 +3,18 @@ package com.calmasalud.hubi.core.service;
 import com.calmasalud.hubi.core.model.Product;
 import com.calmasalud.hubi.core.model.MasterProduct;
 import com.calmasalud.hubi.core.model.ProductComposition;
-import com.calmasalud.hubi.core.model.PieceStockColorView; // NECESARIO
-import com.calmasalud.hubi.core.model.PieceStockDeduction; // NUEVO
+import com.calmasalud.hubi.core.model.PieceStockColorView;
+import com.calmasalud.hubi.core.model.PieceStockDeduction;
 import com.calmasalud.hubi.core.repository.IMasterProductRepository;
 import com.calmasalud.hubi.core.repository.IProductCompositionRepository;
 import com.calmasalud.hubi.core.repository.IProductRepository;
+import com.calmasalud.hubi.core.repository.ISupplyRepository; // <-- NUEVO IMPORT
+import com.calmasalud.hubi.core.model.Supply; // <-- NUEVO IMPORT
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException; // NECESARIO
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays; // NECESARIO
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -21,6 +23,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 class CatalogServiceTest {
+
+    // --- 0. MOCK COMÚN PARA ISupplyRepository ---
+    private final ISupplyRepository mockSupplyRepository = new ISupplyRepository() {
+        @Override public void add(Supply supply) {}
+        @Override public void modify(Supply supply) {}
+        @Override public void delete(long id) {}
+        @Override public Supply findByID(long id) { return null; }
+        @Override public List<Supply> listAll() { return List.of(); }
+        @Override public String getNextCorrelativeCode(String colorName, String tipoFilamento) { return null; }
+    };
 
     @Test
     void testGenerarCodigoProducto() {
@@ -71,8 +83,8 @@ class CatalogServiceTest {
         };
 
 
-        // 4. Crear el servicio, inyectando los TRES Mocks.
-        CatalogService service = new CatalogService(mockProductRepository, mockMasterProductRepository, mockCompositionRepository);
+        // 4. Crear el servicio, inyectando los CUATRO Mocks.
+        CatalogService service = new CatalogService(mockProductRepository, mockMasterProductRepository, mockCompositionRepository, mockSupplyRepository); // <-- ¡AQUÍ ESTÁ EL FIX!
 
         // 5. Ejecutar y validar la prueba original...
         String codigo = service.generateProductCode("Soporte");
@@ -135,7 +147,7 @@ class CatalogServiceTest {
             @Override public boolean compositionExists(String masterCode) { return false; }
         };
 
-        CatalogService service = new CatalogService(mockProductRepositorySuccess, mockMasterProductRepository, mockCompositionRepository);
+        CatalogService service = new CatalogService(mockProductRepositorySuccess, mockMasterProductRepository, mockCompositionRepository, mockSupplyRepository); // <-- ¡AQUÍ ESTÁ EL FIX!
 
 
         // 3. Ejecutar y validar que NO lanza excepción
@@ -190,9 +202,11 @@ class CatalogServiceTest {
             @Override public List<ProductComposition> getComposition(String masterCode) { return List.of(); }
             @Override public boolean compositionExists(String masterCode) { return false; }
         };
-        CatalogService service = new CatalogService(mockProductRepositoryFail, mockMasterProductRepository, mockCompositionRepository);
 
-        // 3. Ejecutar y Verificar Excepción
+        // 3. Crear el servicio con el mock de fallo Y el mock de Supply.
+        CatalogService service = new CatalogService(mockProductRepositoryFail, mockMasterProductRepository, mockCompositionRepository, mockSupplyRepository); // <-- ¡AQUÍ ESTÁ EL FIX!
+
+        // 4. Ejecutar y Verificar Excepción
         assertThrows(IOException.class, () -> {
             service.deleteProductStockByComposition(masterCode, deductions);
         }, "Debería lanzar IOException al fallar la deducción transaccional.");
