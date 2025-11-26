@@ -24,4 +24,20 @@ public class ProductComposition {
     public void setRequiredQuantity(int requiredQuantity) {
         this.requiredQuantity = requiredQuantity;
     }
+    // --- MÉTODOS ALIAS (Para compatibilidad con el Controlador) ---
+
+    // El controlador llama a getQuantity(), nosotros le damos requiredQuantity
+    public int getQuantity() {
+        return requiredQuantity;
+    }
+
+    // El controlador pide un Código, usamos el pieceNameBase
+    public String getComponentCode() {
+        return pieceNameBase;
+    }
+
+    // El controlador pide un Nombre, usamos el pieceNameBase
+    public String getComponentName() {
+        return pieceNameBase;
+    }
 }

@@ -197,6 +197,10 @@ public class InventarioController {
     /**
      * Carga datos de Productos (Árbol jerárquico) con filtro .gcode.
      */
+    /**
+     * Carga datos de Productos (Árbol jerárquico) con filtro .gcode.
+     * MODIFICADO: Oculta piezas y colores con stock 0.
+     */
     private void loadProductStockData() {
         if (productStockTable == null) return;
 
@@ -211,13 +215,16 @@ public class InventarioController {
                 List<Product> pieces = productRepository.findPiecesByMasterPrefix(productView.getProductPrefix());
 
                 for (Product piece : pieces) {
-                    // 🚨 FILTRO: Solo mostrar archivos .gcode
+                    // 1. FILTRO DE EXTENSIÓN: Solo mostrar archivos .gcode
                     if (piece.getFileExtension() == null || !piece.getFileExtension().equalsIgnoreCase(".gcode")) {
                         continue;
                     }
 
                     String pieceNameBase = piece.getName().substring(0, piece.getName().lastIndexOf('.'));
                     int totalPieceStock = productRepository.getPieceStockQuantity(pieceNameBase);
+
+                    // --- CAMBIO: AQUÍ QUITAMOS EL IF QUE OCULTABA LA PIEZA SI ESTABA EN 0 ---
+                    // Ahora la pieza SIEMPRE se agrega, aunque tenga 0 stock.
 
                     MasterProductView pieceNodeData = new MasterProductView(
                             piece.getCode(),
@@ -232,16 +239,21 @@ public class InventarioController {
                     List<PieceStockColorView> colorStocks = productRepository.getStockByPieceNameBase(pieceNameBase);
 
                     for (PieceStockColorView colorStock : colorStocks) {
-                        MasterProductView colorNodeData = new MasterProductView(
-                                piece.getCode() + "-" + colorStock.getColorName(),
-                                productView.getProductPrefix(),
-                                colorStock.getColorName(),
-                                "Stock por Color",
-                                colorStock.getQuantityAvailable(),
-                                0.0
-                        );
-                        pieceNode.getChildren().add(new TreeItem<>(colorNodeData));
+                        // 2. FILTRO DE COLORES: Este SÍ lo mantenemos.
+                        // Si un color específico llega a 0, desaparece de la lista.
+                        if (colorStock.getQuantityAvailable() > 0) {
+                            MasterProductView colorNodeData = new MasterProductView(
+                                    piece.getCode() + "-" + colorStock.getColorName(),
+                                    productView.getProductPrefix(),
+                                    colorStock.getColorName(),
+                                    "Stock por Color",
+                                    colorStock.getQuantityAvailable(),
+                                    0.0
+                            );
+                            pieceNode.getChildren().add(new TreeItem<>(colorNodeData));
+                        }
                     }
+
                     masterNode.getChildren().add(pieceNode);
                 }
                 rootItem.getChildren().add(masterNode);
@@ -288,13 +300,13 @@ public class InventarioController {
         TreeItem<MasterProduct> selectedItem = productStockTable.getSelectionModel().getSelectedItem();
 
         if (selectedItem == null || selectedItem.getValue() == null) {
-            showAlert(AlertType.WARNING, "Selección Requerida", "Seleccione un Producto Maestro (Línea Padre) de la lista para agregar stock finalizado.");
+            showAlert(AlertType.WARNING, "Selección Requerida", "Seleccione un Producto Maestro (Línea Padre) para armar stock.");
             return;
         }
 
         // Validación jerárquica
         if (selectedItem.getParent() == null || selectedItem.getParent().getValue() != null) {
-            showAlert(AlertType.WARNING, "Acción Inválida", "Solo puede agregar stock finalizado seleccionando la línea principal (Producto Maestro).");
+            showAlert(AlertType.WARNING, "Acción Inválida", "Solo puede armar productos seleccionando la línea principal (Producto Maestro).");
             return;
         }
 
@@ -302,35 +314,28 @@ public class InventarioController {
         String masterCode = selectedProduct.getMasterCode();
 
         try {
-            // 2. VERIFICACIÓN: ¿Existe la composición (BOM)?
+            // =================================================================================
+            // PASO 1: VERIFICAR/DEFINIR LA COMPOSICIÓN (RECETA)
+            // =================================================================================
             boolean compositionExists = productCompositionRepository.compositionExists(masterCode);
             boolean openCompositionFlow = !compositionExists;
 
-            // 🚨 NUEVA LÓGICA: Si existe, preguntar si se desea editar
-            if (compositionExists) {
+            // Si ya existe, preguntamos si quiere editarla (opcional, pero útil)
+            // O simplemente asumimos que si no existe, la creamos.
+            if (!compositionExists) {
                 Alert alert = new Alert(AlertType.CONFIRMATION);
-                alert.setTitle("Definición de Producto");
-                alert.setHeaderText("La composición de este producto ya está definida.");
-                alert.setContentText("¿Desea mantener la composición actual o modificar qué piezas conforman este producto?");
+                alert.setTitle("Definir Receta");
+                alert.setHeaderText("Este producto no tiene definida su composición.");
+                alert.setContentText("Antes de armar, necesitas definir qué piezas lo componen. ¿Deseas hacerlo ahora?");
                 alert.getDialogPane().getStyleClass().add("hubi-dialog");
 
-                ButtonType btnContinuar = new ButtonType("Mantener Actual", ButtonBar.ButtonData.OK_DONE);
-                ButtonType btnEditar = new ButtonType("Modificar Composición");
-                ButtonType btnCancelar = new ButtonType("Cancelar", ButtonBar.ButtonData.CANCEL_CLOSE);
-
-                alert.getButtonTypes().setAll(btnContinuar, btnEditar, btnCancelar);
-
                 Optional<ButtonType> result = alert.showAndWait();
-
-                if (result.isEmpty() || result.get() == btnCancelar) {
-                    return; // Cancelar operación
-                }
-                if (result.get() == btnEditar) {
-                    openCompositionFlow = true; // Forzar apertura del editor
+                if (result.isEmpty() || result.get() != ButtonType.OK) {
+                    return; // Cancelar si el usuario no quiere definir la receta
                 }
             }
 
-            // --- FLUJO DE COMPOSICIÓN (Si es nuevo o se eligió editar) ---
+            // Abrimos el editor de composición si no existe o si el usuario quisiera editar (lógica simplificada aquí para forzar si no existe)
             if (openCompositionFlow) {
                 System.out.println("ℹ️ Abriendo editor de composición (BOM).");
 
@@ -338,11 +343,11 @@ public class InventarioController {
                 List<Product> rawPieces = productRepository.findPiecesByMasterPrefix(productPrefix);
 
                 if (rawPieces.isEmpty()) {
-                    showAlert(AlertType.ERROR, "Error de Catálogo", "No hay archivos (.stl, .3mf, .gcode) cargados para este producto. Agregue piezas primero.");
+                    showAlert(AlertType.ERROR, "Error de Catálogo", "No hay archivos de piezas cargados para este producto. Agregue piezas primero.");
                     return;
                 }
 
-                // Lógica de Deduplicación (Gcode > 3mf > Stl)
+                // Filtrado de piezas únicas (Gcode > 3mf > Stl)
                 List<Product> uniquePieces = new java.util.ArrayList<>(
                         rawPieces.stream()
                                 .collect(java.util.stream.Collectors.toMap(
@@ -361,7 +366,7 @@ public class InventarioController {
                                 .values()
                 );
 
-                // Cargar modal
+                // Cargar modal de Composición
                 FXMLLoader loaderComp = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/CompositionModal.fxml"));
                 Parent rootComp = loaderComp.load();
                 CompositionController compController = loaderComp.getController();
@@ -369,49 +374,38 @@ public class InventarioController {
                 compController.setCompositionData(masterCode, selectedProduct.getProductName(), uniquePieces);
 
                 Stage modalStageComp = new Stage();
-                modalStageComp.setTitle("Definir Composición (BOM) - " + selectedProduct.getProductName());
+                modalStageComp.setTitle("Definir Receta (BOM) - " + selectedProduct.getProductName());
                 modalStageComp.initModality(Modality.APPLICATION_MODAL);
                 modalStageComp.setScene(new Scene(rootComp));
                 modalStageComp.showAndWait();
 
-                // Si canceló la edición y la composición NO existía, no podemos seguir.
-                // Si canceló la edición pero YA existía una, asumimos que no quiere seguir tampoco.
-                if (!compController.isCompositionSaved()) {
+                // Si al cerrar no se guardó la composición, cancelamos el armado
+                if (!productCompositionRepository.compositionExists(masterCode)) {
                     return;
                 }
             }
 
-            // 3. SOLICITAR LA CANTIDAD A AGREGAR (AddStockModal)
-            FXMLLoader loaderStock = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/AddStockModal.fxml"));
-            Parent rootStock = loaderStock.load();
-            AddStockController stockController = loaderStock.getController();
+            // =================================================================================
+            // PASO 2: ABRIR VENTANA DE ARMADO (AssembleProductModal)
+            // =================================================================================
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/AssembleProductModal.fxml"));
+            Parent root = loader.load();
 
-            stockController.setProductName(selectedProduct.getProductName());
+            AssembleProductController controller = loader.getController();
+            controller.setDependencies(catalogService, productCompositionRepository, productRepository);
+            controller.initData(selectedProduct);
 
-            Stage modalStageStock = new Stage();
-            modalStageStock.setTitle("Agregar Stock - Cantidad");
-            modalStageStock.initModality(Modality.APPLICATION_MODAL);
-            modalStageStock.setScene(new Scene(rootStock));
-            modalStageStock.showAndWait();
+            Stage modalStage = new Stage();
+            modalStage.setTitle("Armar Producto - " + selectedProduct.getProductName());
+            modalStage.initModality(Modality.APPLICATION_MODAL);
+            modalStage.setScene(new Scene(root));
+            modalStage.showAndWait();
 
-            // 4. Procesar resultado
-            if (stockController.isAccepted()) {
-                int quantity = stockController.getCantidad();
-                catalogService.verifyPieceAvailability(masterCode, quantity);
-                masterProductRepository.increaseStock(masterCode, quantity);
-
-                showAlert(AlertType.INFORMATION, "Éxito",
-                        "Se agregaron +" + quantity + " unidades a la existencia de " + selectedProduct.getProductName());
-                loadProductStockData();
-            }
+            loadProductStockData(); // Recargar tabla final
 
         } catch (IOException e) {
-            showAlert(AlertType.ERROR, "Error de Sistema/Stock", "Error: " + e.getMessage());
+            showAlert(AlertType.ERROR, "Error", "Error al abrir la ventana: " + e.getMessage());
             e.printStackTrace();
-        } catch (NumberFormatException e) {
-            showAlert(AlertType.ERROR, "Error de Entrada", "La entrada no es un número válido.");
-        } catch (RuntimeException e) {
-            showAlert(AlertType.ERROR, "Error de Base de Datos", "No se pudo actualizar el stock: " + e.getMessage());
         }
     }
 
@@ -419,48 +413,43 @@ public class InventarioController {
     private void handleDeleteProductStock(ActionEvent event) {
         TreeItem<MasterProduct> selectedItem = productStockTable.getSelectionModel().getSelectedItem();
 
-        if (selectedItem == null || selectedItem.getValue() == null) {
-            showAlert(AlertType.WARNING, "Selección Requerida", "Seleccione un Producto Maestro (Línea Padre) para eliminar stock por composición.");
-            return;
-        }
+        // --- VALIDACIÓN CORREGIDA ---
+        // 1. Debe haber selección.
+        // 2. No debe ser la raíz (getParent() == null).
+        // 3. El padre NO debe tener valor (si el padre tiene valor, es porque seleccionaste una PIEZA hija).
+        if (selectedItem == null || selectedItem.getValue() == null ||
+                selectedItem.getParent() == null || selectedItem.getParent().getValue() != null) {
 
-        // Validación jerárquica: Debe ser el nodo Padre (su padre es la raíz invisible, cuyo .getValue() es null)
-        if (selectedItem.getParent() == null || selectedItem.getParent().getValue() != null) {
-            showAlert(AlertType.WARNING, "Acción Inválida", "Solo puede eliminar stock por composición seleccionando la línea principal (Producto Maestro).");
+            showAlert(AlertType.WARNING, "Selección", "Seleccione un Producto Maestro (Línea Padre) para eliminar stock.");
             return;
         }
 
         MasterProduct selectedProduct = selectedItem.getValue();
 
-        try {
-            // 1. Cargar el FXML y obtener el controlador del modal
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/RemoveProductStockModal.fxml"));
-            Parent root = loader.load();
-            RemoveProductStockController controller = loader.getController();
+        // Lógica de eliminación simple (Venta/Pérdida)
+        TextInputDialog dialog = new TextInputDialog("1");
+        dialog.setTitle("Eliminar Stock (Venta/Pérdida)");
+        dialog.setHeaderText("Producto: " + selectedProduct.getProductName());
+        dialog.setContentText("Cantidad a eliminar:");
 
-            // 2. Inyectar dependencias (usando las ya definidas en InventarioController)
-            controller.setDependencies(catalogService, productCompositionRepository, productRepository);
+        Optional<String> result = dialog.showAndWait();
+        if (result.isPresent()) {
+            try {
+                int qty = Integer.parseInt(result.get());
+                if (qty <= 0) throw new NumberFormatException();
 
-            // 3. Inicializar datos del modal
-            // Nota: MasterProductView hereda de MasterProduct, por lo que selectedProduct funciona.
-            controller.initData(selectedProduct);
+                // Llamamos directo a disminuir stock maestro (SIN tocar piezas, ya se gastaron al armar)
+                catalogService.decreaseMasterProductStock(selectedProduct.getMasterCode(), qty);
 
-            // 4. Mostrar la ventana emergente (modal)
-            Stage modalStage = new Stage();
-            modalStage.setTitle("Eliminar Stock de Producto - " + selectedProduct.getProductName());
-            modalStage.initModality(Modality.APPLICATION_MODAL);
-            modalStage.setScene(new Scene(root));
-            modalStage.showAndWait();
-
-            // 5. Recargar datos después de cerrar el modal para reflejar los cambios
-            loadProductStockData();
-
-        } catch (IOException e) {
-            showAlert(AlertType.ERROR, "Error de Interfaz", "No se pudo cargar la ventana de deducción de stock: " + e.getMessage());
-            e.printStackTrace();
+                showAlert(AlertType.INFORMATION, "Éxito", "Stock eliminado correctamente.");
+                loadProductStockData(); // Recargar tabla
+            } catch (NumberFormatException e) {
+                showAlert(AlertType.ERROR, "Error", "Ingrese una cantidad válida mayor a 0.");
+            } catch (Exception e) {
+                showAlert(AlertType.ERROR, "Error", e.getMessage());
+            }
         }
     }
-
     @FXML
     private void handleModifyPieceStock(ActionEvent event) {
         TreeItem<MasterProduct> selectedItem = productStockTable.getSelectionModel().getSelectedItem();

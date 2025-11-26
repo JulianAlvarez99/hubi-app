@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane prefHeight="500.0" prefWidth="700.0" styleClass="modal-dialog" stylesheets="@../css/styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.AssembleProductController">
+    <children>
+        <VBox alignment="TOP_CENTER" prefHeight="480.0" prefWidth="680.0" AnchorPane.bottomAnchor="10.0" AnchorPane.leftAnchor="10.0" AnchorPane.rightAnchor="10.0" AnchorPane.topAnchor="10.0">
+            <children>
+                <Label styleClass="section-label" text="Armar Producto / Producción">
+                    <VBox.margin>
+                        <Insets top="10.0" />
+                    </VBox.margin>
+                </Label>
+                <Label fx:id="productNameLabel" style="-fx-font-weight: bold; -fx-text-fill: -fx-color-primary;" text="Producto Seleccionado: [Nombre del Producto]">
+                    <VBox.margin>
+                        <Insets top="5.0" />
+                    </VBox.margin>
+                </Label>
+                <HBox alignment="CENTER" spacing="10.0">
+                    <VBox.margin>
+                        <Insets top="15.0" />
+                    </VBox.margin>
+                    <children>
+                        <Label text="Cantidad a producir(Unidades):" />
+                        <TextField fx:id="quantityField" prefWidth="80.0" promptText="Ej: 5" />
+                    </children>
+                </HBox>
+                <Label style="-fx-font-weight: bold; -fx-text-fill: -fx-color-primary;" text="Seleccione el Color de Cada Pieza Individual a Descontar del Stock:">
+                    <VBox.margin>
+                        <Insets top="15.0" />
+                    </VBox.margin>
+                </Label>
+                <TableView fx:id="deductionTable" prefHeight="280.0" prefWidth="680.0" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colPieceIndex" prefWidth="50.0" text="#" />
+                        <TableColumn fx:id="colPieceName" prefWidth="180.0" text="Pieza Base" />
+                        <TableColumn fx:id="colMasterCode" prefWidth="152.00001525878906" text="Cód. Maestro Pieza" />
+                        <TableColumn fx:id="colSelectedColor" prefWidth="155.20001220703125" text="Color a Descontar" />
+                        <TableColumn fx:id="colStockAvailable" prefWidth="140.79998779296875" text="Stock (Color)" />
+                    </columns>
+                </TableView>
+                <HBox alignment="CENTER" spacing="15.0">
+                    <VBox.margin>
+                        <Insets top="15.0" />
+                    </VBox.margin>
+                    <children>
+                        <Button mnemonicParsing="false" onAction="#handleConfirmAssembly" prefHeight="32.0" prefWidth="215.0" styleClass="danger-action-button" text="Confirmar Produccion" />
+                        <Button mnemonicParsing="false" onAction="#handleCancel" prefHeight="34.0" prefWidth="215.0" styleClass="secondary-action-button" text="Cancelar" />
+                    </children>
+                </HBox>
+            </children>
+        </VBox>
+    </children>
+</AnchorPane>
