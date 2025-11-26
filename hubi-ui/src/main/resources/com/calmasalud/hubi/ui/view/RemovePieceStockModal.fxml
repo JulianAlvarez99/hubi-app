@@ -38,9 +38,9 @@
             </GridPane>
         </VBox>
 
-        <HBox alignment="CENTER_RIGHT" spacing="10.0" VBox.vgrow="ALWAYS">
-            <Button styleClass="secondary-action-button" text="CANCELAR" onAction="#handleCancel" cancelButton="true"/>
-            <Button styleClass="danger-button" text="REGISTRAR ELIMINACIÓN" onAction="#handleConfirmRemoval" defaultButton="true"/>
+        <HBox alignment="CENTER" spacing="10.0" VBox.vgrow="ALWAYS">
+            <Button styleClass="danger-action-button" text="REGISTRAR ELIMINACIÓN" onAction="#handleConfirmRemoval" defaultButton="true" minWidth="180.0"/>
+            <Button styleClass="secondary-action-button" text="CANCELAR" onAction="#handleCancel" cancelButton="true" minWidth="110.0"/>
         </HBox>
     </children>
 </VBox>

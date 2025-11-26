@@ -1,33 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.control.TableView?>
-<?import javafx.scene.control.TableColumn?>
-<?import javafx.scene.control.TextField?>
-<?import javafx.scene.layout.VBox?>
-<?import javafx.scene.layout.HBox?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
 
-<VBox minHeight="400.0" minWidth="600.0" spacing="15.0" styleClass="modal-dialog" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.CompositionController" stylesheets="@../css/styles.css">
+<VBox minHeight="400.0" minWidth="600.0" spacing="15.0" styleClass="modal-dialog" stylesheets="@../css/styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.CompositionController">
     <padding>
         <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
     </padding>
     <children>
         <Label styleClass="section-label" text="DEFINIR COMPOSICIÓN DEL PRODUCTO (BOM)" />
-        <Label fx:id="lblProductoNombre" text="Producto: [Nombre del Producto]" style="-fx-font-weight: bold;" />
-        <Label text="Indique cuántas unidades de cada pieza se requieren para ensamblar 1 Producto Final:" />
+        <Label fx:id="lblProductoNombre" style="-fx-font-weight: bold;" text="Producto: [Nombre del Producto]" />
+        <Label prefHeight="24.0" prefWidth="557.0" text="Indique cuántas unidades de cada pieza se requieren para ensamblar un Producto Final:" />
 
         <TableView fx:id="pieceCompositionTable" editable="true" VBox.vgrow="ALWAYS">
             <columns>
-                <TableColumn fx:id="colNombrePieza" text="Pieza (Nombre Base)" prefWidth="300.0" />
-                <TableColumn fx:id="colCantidadRequerida" text="Cantidad Requerida" prefWidth="150.0" />
+                <TableColumn fx:id="colNombrePieza" prefWidth="300.0" text="Pieza (Nombre Base)" />
+                <TableColumn fx:id="colCantidadRequerida" prefWidth="150.0" text="Cantidad Requerida" />
             </columns>
         </TableView>
 
-        <HBox alignment="CENTER_RIGHT" spacing="10.0">
-            <Button fx:id="btnCancelar" styleClass="secondary-action-button" text="CANCELAR" onAction="#handleCancel" cancelButton="true"/>
-            <Button fx:id="btnGuardar" styleClass="action-button" text="GUARDAR COMPOSICIÓN" onAction="#handleSave" defaultButton="true"/>
+        <HBox alignment="CENTER" spacing="10.0">
+            <Button fx:id="btnGuardar" defaultButton="true" minWidth="170.0" onAction="#handleSave" styleClass="action-button" text="GUARDAR COMPOSICIÓN">
+            <font>
+               <Font size="11.0" />
+            </font></Button>
+            <Button fx:id="btnCancelar" cancelButton="true" minWidth="110.0" onAction="#handleCancel" styleClass="secondary-action-button" text="CANCELAR">
+            <font>
+               <Font size="11.0" />
+            </font></Button>
         </HBox>
     </children>
 </VBox>

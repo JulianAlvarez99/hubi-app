@@ -31,6 +31,7 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -48,6 +49,7 @@ public class InventarioController {
     private final IProductRepository productRepository = new ProductRepositorySQLite();
     private final IProductCompositionRepository productCompositionRepository = new ProductCompositionRepositorySQLite();
     private final ISupplyRepository supplyRepository = new SupplyRepositorySQLite();
+    public StackPane contentArea;
 
     private CatalogService catalogService; // Se inyecta desde MainController
 
@@ -58,7 +60,7 @@ public class InventarioController {
     // 2. CAMPOS FXML (VISTAS Y CONTENEDORES)
     // =====================================================================
     @FXML private VBox productContentArea;      // Contenedor de Productos
-    @FXML private AnchorPane supplyContentArea; // Contenedor de Insumos
+    @FXML private VBox supplyContentArea; // Contenedor de Insumos
 
     // --- TABLA DE PRODUCTOS (ORIGINAL) ---
     @FXML private TreeTableView<MasterProduct> productStockTable;

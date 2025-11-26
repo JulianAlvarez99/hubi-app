@@ -1,21 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.ComboBox?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.layout.GridPane?>
-<?import javafx.scene.layout.ColumnConstraints?>
-<?import javafx.scene.layout.RowConstraints?>
-<?import javafx.scene.layout.VBox?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
 
-<VBox styleClass="module-container" alignment="TOP_LEFT" spacing="20.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.ConfiguracionController" stylesheets="@../css/styles.css">
+<VBox alignment="TOP_LEFT" spacing="20.0" styleClass="module-container" stylesheets="@../css/styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.ConfiguracionController">
+    <padding>
+        <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
+    </padding>
     <children>
         <Label styleClass="section-title" text="Configuración de Pantalla" />
-        <GridPane hgap="10.0" vgap="10.0" maxWidth="500.0">
+
+        <Label fx:id="lblInfoPantalla" style="-fx-font-size: 0.95em; -fx-text-fill: -fx-color-text-muted;" text="Resolución de pantalla detectada: Cargando..." />
+
+        <GridPane hgap="10.0" maxWidth="600.0" vgap="10.0">
             <columnConstraints>
                 <ColumnConstraints hgrow="NEVER" minWidth="150.0" />
                 <ColumnConstraints hgrow="ALWAYS" />
+                <ColumnConstraints hgrow="NEVER" />
             </columnConstraints>
             <rowConstraints>
                 <RowConstraints minHeight="30.0" vgrow="SOMETIMES" />
@@ -31,6 +33,9 @@
             </children>
         </GridPane>
 
-        <Button fx:id="btnAplicar" styleClass="action-button" text="APLICAR CAMBIOS" onAction="#handleAplicar" />
+        <HBox alignment="CENTER_LEFT" spacing="10.0">
+            <Button fx:id="btnAplicar" minWidth="150.0" onAction="#handleAplicar" prefHeight="27.0" prefWidth="180.0" styleClass="action-button" text="APLICAR CAMBIOS" />
+             <Button fx:id="btnDetectar" onAction="#handleDetectarAuto" prefHeight="27.0" prefWidth="180.0" styleClass="modify-button" text="AJUSTE AUTOMÁTICO" />
+        </HBox>
     </children>
 </VBox>

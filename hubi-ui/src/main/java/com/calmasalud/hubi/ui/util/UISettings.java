@@ -1,6 +1,8 @@
 package com.calmasalud.hubi.ui.util;
 
+import javafx.geometry.Rectangle2D;
 import javafx.scene.control.Alert;
+import javafx.stage.Screen;
 
 import java.util.prefs.Preferences;
 
@@ -14,17 +16,61 @@ public class UISettings {
     private static final String KEY_WINDOW_HEIGHT = "windowHeight";
     private static final String KEY_RESOLUTION_PRESET = "resolutionPreset";
     private static final String KEY_BASE_FONT_SIZE = "baseFontSize";
-    // Valores por defecto
+
+    // Valores por defecto (mínimos seguros)
     private static final double DEFAULT_WIDTH = 1024;
     private static final double DEFAULT_HEIGHT = 768;
     private static final String DEFAULT_PRESET = "1024 x 768";
     private static final double DEFAULT_BASE_FONT_SIZE = 14.0;
 
-    private Preferences prefs;
+    // Porcentaje de pantalla a usar cuando se detecta automáticamente
+    private static final double SCREEN_USAGE_PERCENTAGE = 0.80; // 80% de la pantalla
+
+    private final Preferences prefs;
 
     public UISettings() {
         // Obtiene el nodo de preferencias para el usuario actual
         this.prefs = Preferences.userRoot().node(PREF_NODE_NAME);
+    }
+
+    /**
+     * Obtiene la resolución de la pantalla principal del sistema.
+     */
+    public static Rectangle2D getScreenBounds() {
+        return Screen.getPrimary().getVisualBounds();
+    }
+
+    /**
+     * Calcula un tamaño de ventana recomendado basado en la resolución de la pantalla.
+     * Retorna [ancho, alto] que es el 80% de la pantalla disponible.
+     */
+    public static double[] getRecommendedWindowSize() {
+        Rectangle2D screenBounds = getScreenBounds();
+        double width = screenBounds.getWidth() * SCREEN_USAGE_PERCENTAGE;
+        double height = screenBounds.getHeight() * SCREEN_USAGE_PERCENTAGE;
+
+        // Asegurar un mínimo razonable
+        width = Math.max(width, 800);
+        height = Math.max(height, 600);
+
+        return new double[]{width, height};
+    }
+
+    /**
+     * Valida que el tamaño guardado no exceda la pantalla actual.
+     */
+    private double[] validateWindowSize(double width, double height) {
+        Rectangle2D screenBounds = getScreenBounds();
+
+        // Si el tamaño guardado es mayor que la pantalla, usar tamaño recomendado
+        if (width > screenBounds.getWidth() || height > screenBounds.getHeight()) {
+            System.out.println("Advertencia: Resolución guardada (" + width + "x" + height +
+                             ") excede la pantalla actual (" + screenBounds.getWidth() + "x" +
+                             screenBounds.getHeight() + "). Ajustando automáticamente.");
+            return getRecommendedWindowSize();
+        }
+
+        return new double[]{width, height};
     }
 
     /**
@@ -38,11 +84,23 @@ public class UISettings {
     /**
      * Carga la última dimensión guardada.
      * Retorna un array [ancho, alto].
+     * Si no hay configuración guardada o es inválida, usa la resolución recomendada del sistema.
      */
     public double[] loadWindowSize() {
-        double width = prefs.getDouble(KEY_WINDOW_WIDTH, DEFAULT_WIDTH);
-        double height = prefs.getDouble(KEY_WINDOW_HEIGHT, DEFAULT_HEIGHT);
-        return new double[]{width, height};
+        double width = prefs.getDouble(KEY_WINDOW_WIDTH, -1);
+        double height = prefs.getDouble(KEY_WINDOW_HEIGHT, -1);
+
+        // Si no hay configuración guardada, usar tamaño recomendado basado en pantalla
+        if (width <= 0 || height <= 0) {
+            System.out.println("No hay configuración guardada. Detectando resolución de pantalla...");
+            double[] recommended = getRecommendedWindowSize();
+            // Guardar la nueva configuración
+            saveWindowSize(recommended[0], recommended[1]);
+            return recommended;
+        }
+
+        // Validar que el tamaño guardado sea apropiado para la pantalla actual
+        return validateWindowSize(width, height);
     }
 
     /**
@@ -54,9 +112,19 @@ public class UISettings {
 
     /**
      * Carga el nombre del último preset seleccionado.
+     * Si no existe, calcula el preset más cercano a la resolución de la pantalla.
      */
     public String loadResolutionPreset() {
-        return prefs.get(KEY_RESOLUTION_PRESET, DEFAULT_PRESET);
+        String saved = prefs.get(KEY_RESOLUTION_PRESET, null);
+
+        // Si no hay preset guardado, calcular el más apropiado
+        if (saved == null || saved.isEmpty()) {
+            double[] recommended = getRecommendedWindowSize();
+            saved = String.format("%.0f x %.0f", recommended[0], recommended[1]);
+            saveResolutionPreset(saved);
+        }
+
+        return saved;
     }
 
     /**
@@ -72,9 +140,7 @@ public class UISettings {
     public double loadBaseFontSize() {
         return prefs.getDouble(KEY_BASE_FONT_SIZE, DEFAULT_BASE_FONT_SIZE);
     }
-    /**
-     * Muestra una ventana de alerta de forma estática.
-     */
+
     /**
      * Versión principal de 4 argumentos. Llamada por métodos estáticos.
      */

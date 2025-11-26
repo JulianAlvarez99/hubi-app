@@ -1,15 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.ComboBox?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.layout.GridPane?>
-<?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.VBox?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
 
-<?import javafx.scene.control.TextField?>
-<VBox minHeight="300.0" minWidth="450.0" spacing="15.0" styleClass="modal-dialog" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.AddPieceStockController" stylesheets="@../css/styles.css">
+<VBox minHeight="300.0" minWidth="450.0" spacing="15.0" styleClass="modal-dialog" stylesheets="@../css/styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.AddPieceStockController">
     <padding>
         <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
     </padding>
@@ -19,6 +14,13 @@
         <GridPane hgap="10.0" vgap="5.0">
             <Label text="Cantidad Producida:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
             <TextField fx:id="txtCantidad" promptText="1" text="1" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+         <columnConstraints>
+            <ColumnConstraints />
+            <ColumnConstraints />
+         </columnConstraints>
+         <rowConstraints>
+            <RowConstraints />
+         </rowConstraints>
         </GridPane>
         <Label text="Seleccione los colores utilizados en la impresión:" />
 
@@ -35,12 +37,22 @@
 
                 <Label text="Color 4 (Opcional):" GridPane.columnIndex="0" GridPane.rowIndex="3" />
                 <ComboBox fx:id="cmbColor4" prefWidth="250" promptText="Ninguno" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+            <columnConstraints>
+               <ColumnConstraints />
+               <ColumnConstraints />
+            </columnConstraints>
+            <rowConstraints>
+               <RowConstraints />
+               <RowConstraints />
+               <RowConstraints />
+               <RowConstraints />
+            </rowConstraints>
             </GridPane>
         </VBox>
 
-        <HBox alignment="CENTER_RIGHT" spacing="10.0" VBox.vgrow="ALWAYS">
-            <Button styleClass="secondary-action-button" text="CANCELAR" onAction="#handleCancel" cancelButton="true"/>
-            <Button styleClass="action-button" text="REGISTRAR PRODUCCIÓN" onAction="#handleRegister" defaultButton="true"/>
+        <HBox alignment="CENTER" spacing="10.0" VBox.vgrow="ALWAYS">
+            <Button defaultButton="true" minWidth="180.0" onAction="#handleRegister" styleClass="action-button" text="REGISTRAR PRODUCCIÓN" />
+            <Button cancelButton="true" minWidth="110.0" onAction="#handleCancel" styleClass="secondary-action-button" text="CANCELAR" />
         </HBox>
     </children>
 </VBox>

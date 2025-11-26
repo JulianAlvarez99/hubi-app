@@ -483,10 +483,10 @@ public class CatalogService {
 
     /**
      * Elimina una pieza específica.
-     * Borra el registro de la BD y el archivo físico.
-     * Si la carpeta del producto queda vacía después de eliminar la pieza, también elimina la carpeta.
+     * Borra el registro de la BD y MUEVE el archivo físico a la papelera de reciclaje.
+     * Si la carpeta del producto queda vacía después de eliminar la pieza, también mueve la carpeta a la papelera.
      * @param pieceFile El archivo de la pieza a eliminar.
-     * @throws IOException Si el archivo no es válido, no se puede eliminar, o hay error de BD.
+     * @throws IOException Si el archivo no es válido, no se puede mover a la papelera, o hay error de BD.
      */
     public void deletePiece(File pieceFile) throws IOException {
         if (pieceFile == null || !pieceFile.isFile()) {
@@ -510,12 +510,18 @@ public class CatalogService {
         // 1. Eliminar de la BD
         productRepository.deleteByCode(code);
 
-        // 2. Eliminar del Disco
-        Files.delete(pieceFile.toPath());
-        System.out.println("✅ Pieza eliminada del disco y BD: " + code);
+        // 2. MOVER A LA PAPELERA en lugar de eliminar permanentemente
+        boolean movedToRecycleBin = RecycleBinManager.moveToRecycleBin(pieceFile);
+
+        if (!movedToRecycleBin) {
+            // Si falla el movimiento a la papelera, lanzar excepción
+            throw new IOException("No se pudo mover el archivo a la papelera de reciclaje: " + fileName);
+        }
+
+        System.out.println("✅ Pieza eliminada de la BD y movida a papelera: " + code);
 
 
-        // 3. Verificar si el directorio padre quedó vacío y eliminarlo si es así
+        // 3. Verificar si el directorio padre quedó vacío y moverlo a la papelera si es así
         if (parentDir.exists() && parentDir.isDirectory()) {
             boolean isEmpty = true;
             try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(parentPath)) {
@@ -529,14 +535,19 @@ public class CatalogService {
             }
 
             if (isEmpty) {
-                Files.delete(parentPath);
-                System.out.println("✅ Carpeta de Producto vacía eliminada: " + parentPath.getFileName());
+                // Mover la carpeta vacía a la papelera en lugar de eliminarla
+                boolean dirMovedToRecycleBin = RecycleBinManager.moveDirectoryToRecycleBin(parentDir);
+                if (dirMovedToRecycleBin) {
+                    System.out.println("✅ Carpeta de Producto vacía movida a papelera: " + parentPath.getFileName());
+                } else {
+                    System.err.println("⚠️ No se pudo mover la carpeta vacía a la papelera: " + parentPath.getFileName());
+                }
             }
         }
     }
 
     /**
-     * Elimina un Producto completo (su carpeta y todas las piezas dentro) Y el registro maestro.
+     * Elimina un Producto completo (MUEVE su carpeta y todas las piezas dentro a la papelera) Y elimina el registro maestro de la BD.
      */
     public void deleteProduct(File productDirectory) throws IOException {
 
@@ -557,7 +568,6 @@ public class CatalogService {
                 .forEach(path -> {
                     File pieceFile = path.toFile();
                     String fileName = pieceFile.getName();
-                   // String code = "";
                     int lastDotIndex = fileName.lastIndexOf('.');
 
                     if (lastDotIndex > 0) {
@@ -581,11 +591,14 @@ public class CatalogService {
                     }
                 });
 
-        // 2. Eliminar el Directorio Físico y su contenido (recursivamente)
-        Files.walk(productPath)
-                .sorted(Comparator.reverseOrder())
-                .map(Path::toFile)
-                .forEach(File::delete);
+        // 2. MOVER el Directorio Completo a la Papelera (en lugar de eliminarlo permanentemente)
+        boolean movedToRecycleBin = RecycleBinManager.moveDirectoryToRecycleBin(productDirectory);
+
+        if (!movedToRecycleBin) {
+            throw new IOException("No se pudo mover el producto a la papelera de reciclaje: " + productName);
+        }
+
+        System.out.println("♻️ Producto completo movido a papelera: " + productName);
 
         // 3. Eliminar el registro de Producto Maestro y su Stock Final
         if (masterCode != null) {
@@ -600,12 +613,7 @@ public class CatalogService {
             System.out.println("✅ Registro Maestro y Stock final eliminados para: " + masterCode);
         }
 
-        // Verificar si realmente se borró (puede fallar por permisos, etc.)
-        if (Files.exists(productPath)) {
-            System.err.println("⚠️ Advertencia: No se pudo eliminar completamente la carpeta del producto: " + productDirectory.getName());
-        } else {
-            System.out.println("✅ Producto (carpeta y piezas) eliminado: " + productDirectory.getName());
-        }
+        System.out.println("✅ Producto '" + productName + "' eliminado del catálogo y movido a papelera.");
     }
 
     public void verifyPieceAvailability(String masterCode, int quantity) throws IOException {

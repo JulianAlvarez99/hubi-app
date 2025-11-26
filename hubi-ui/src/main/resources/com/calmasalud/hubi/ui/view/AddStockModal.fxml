@@ -1,16 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.control.TextField?>
-<?import javafx.scene.layout.GridPane?>
-<?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.ColumnConstraints?>
-<?import javafx.scene.layout.RowConstraints?>
-<?import javafx.scene.layout.VBox?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
 
-<VBox minHeight="180.0" minWidth="350.0" prefHeight="180.0" prefWidth="350.0" spacing="15.0" styleClass="modal-dialog" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.AddStockController" stylesheets="@../css/styles.css">
+<VBox minHeight="180.0" minWidth="350.0" prefHeight="228.0" prefWidth="401.0" spacing="15.0" styleClass="modal-dialog" stylesheets="@../css/styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.calmasalud.hubi.ui.controller.AddStockController">
     <padding>
         <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
     </padding>
@@ -19,21 +13,21 @@
 
         <GridPane hgap="10.0" vgap="10.0">
             <columnConstraints>
-                <ColumnConstraints hgrow="NEVER" prefWidth="120.0" />
-                <ColumnConstraints hgrow="ALWAYS" />
+                <ColumnConstraints hgrow="NEVER" maxWidth="163.0" minWidth="125.0" prefWidth="145.2" />
+                <ColumnConstraints hgrow="ALWAYS" maxWidth="224.20000000000002" minWidth="186.20000000000002" prefWidth="204.4" />
             </columnConstraints>
             <rowConstraints>
                 <RowConstraints vgrow="SOMETIMES" />
             </rowConstraints>
-            <Label text="Cantidad a Agregar:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
-            <TextField fx:id="txtCantidad" promptText="1" text="1" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+            <Label prefHeight="22.0" prefWidth="134.0" text="Cantidad a Agregar:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+            <TextField fx:id="txtCantidad" prefHeight="32.0" prefWidth="211.0" promptText="1" text="1" GridPane.columnIndex="1" GridPane.rowIndex="0" />
         </GridPane>
 
         <Label fx:id="lblProductoNombre" style="-fx-font-size: 0.9em; -fx-text-fill: -fx-color-text-muted;" text="(Producto: Nombre seleccionado)" />
 
-        <HBox alignment="CENTER_RIGHT" spacing="10.0" VBox.vgrow="ALWAYS">
-            <Button fx:id="btnCancelar" styleClass="secondary-action-button" text="CANCELAR" onAction="#handleCancel" cancelButton="true"/>
-            <Button fx:id="btnAceptar" styleClass="action-button" text="ACEPTAR" onAction="#handleAccept" defaultButton="true"/>
+        <HBox alignment="CENTER" spacing="10.0" VBox.vgrow="ALWAYS">
+            <Button fx:id="btnAceptar" defaultButton="true" minWidth="110.0" onAction="#handleAccept" styleClass="action-button" text="ACEPTAR" />
+            <Button fx:id="btnCancelar" cancelButton="true" minWidth="110.0" onAction="#handleCancel" styleClass="secondary-action-button" text="CANCELAR" />
         </HBox>
     </children>
 </VBox>

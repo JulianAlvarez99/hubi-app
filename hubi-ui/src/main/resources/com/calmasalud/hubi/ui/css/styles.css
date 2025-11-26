@@ -23,7 +23,7 @@
 
     /* El tamaño de fuente raíz AHORA usa la variable */
     /*-fx-font-size: -fx-base-font-size;*/
-    -fx-font-size: 14px;
+    -fx-font-size: 13px;
 }
 
 /* --- Estilos del MainView.fxml --- */
@@ -139,6 +139,13 @@
     -fx-font-size: 1.15em; /* 16px / 14px */
     -fx-font-weight: bold;
     -fx-text-fill: -fx-color-primary;
+}
+
+.section-subtitle {
+    -fx-font-size: 1.05em; /* 14.7px / 14px */
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-color-primary;
+    -fx-padding: 5px 0 0 0;
 }
 
 /* Placeholder para el visor 3D */
@@ -362,3 +369,36 @@
     -fx-text-fill: -fx-color-text-dark;
 }
 /* --- Fin Estilo para Alertas --- */
+
+.submenu-vbox {
+    -fx-background-color: #e8e8e8; /* Fondo ligeramente más oscuro que el menú principal */
+    -fx-padding: 5px 0 5px 20px; /* Indentación a la izquierda para jerarquía visual */
+    -fx-spacing: 2px;
+}
+
+.submenu-button {
+    -fx-font-size: 0.9em; /* Ligeramente más pequeño que menu-toggle-button (12px / 14px) */
+    -fx-font-weight: bold;
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-color-primary;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 8px 15px;
+    -fx-background-radius: 6;
+}
+
+.submenu-button:selected {
+    -fx-background-color: #D9C8CA;
+    -fx-text-fill: #000000;
+}
+
+.submenu-button:hover {
+    -fx-background-color: -fx-color-bg-medium;
+}
+/* Estilo para el ícono dentro del botón de submenú */
+.menu-sub-container {
+    -fx-background-color: #e8e8e8; /* Fondo ligeramente más oscuro que el menú principal */
+    -fx-padding: 5px 10px;
+    -fx-spacing: 5px;
+    -fx-border-width: 0 0 1px 0;
+    -fx-border-color: -fx-color-border;
+}

@@ -1,5 +1,6 @@
 package com.calmasalud.hubi.ui;
 
+import com.calmasalud.hubi.core.service.RecycleBinManager;
 import com.calmasalud.hubi.persistence.db.SQLiteManager;
 import com.calmasalud.hubi.ui.util.UISettings;
 import javafx.application.Application;
@@ -41,16 +42,21 @@ public class Main extends Application {
         // Inicializar la base de datos (crear tablas si no existen)
         SQLiteManager.initializeDatabase();
 
+        // Inicializar la papelera de reciclaje (crear carpeta si no existe)
+        RecycleBinManager.ensureRecycleBinExists();
+
         // 2. Cargar el archivo FXML de la vista principal
         FXMLLoader loader = new FXMLLoader(Objects.requireNonNull(getClass().getResource("/com/calmasalud/hubi/ui/view/MainView.fxml")));
         Parent root = loader.load();
 
         // 4. Cargar configuración de tamaño
         UISettings settings = new UISettings();
-        double[] size = settings.loadWindowSize(); // [width, height]
+        double[] size = settings.loadWindowSize(); // [width, height] - ahora con validación automática
         double baseFontSize = settings.loadBaseFontSize();
 
-        // 5. Configurar la escena con el tamaño CARGADO (en lugar del fijo 1024x768)
+        System.out.println("Iniciando aplicación con resolución: " + size[0] + "x" + size[1]);
+
+        // 5. Configurar la escena con el tamaño CARGADO Y VALIDADO
         Scene scene = new Scene(root, size[0], size[1]);
 
         // 6. Aplicar la hoja de estilos (código existente)
@@ -69,22 +75,36 @@ public class Main extends Application {
         }
         // ----------------------------------------------------------------
 
-        // 7. Configurar el escenario (código existente)
+        // 7. Configurar el escenario
         primaryStage.setTitle("Sistema HUBI v1.0 - Calma Salud");
         primaryStage.setScene(scene);
+
+        // Establecer tamaño mínimo y máximo razonables
         primaryStage.setMinWidth(800);
         primaryStage.setMinHeight(600);
 
-        // 8. (Opcional pero recomendado) Guardar el tamaño si el usuario lo cambia manualmente
-        // Esto guarda el tamaño cuando el usuario cierra la ventana.
-        primaryStage.setOnCloseRequest(event -> {
-            settings.saveWindowSize(primaryStage.getWidth(), primaryStage.getHeight());
-            // (Opcional: guardar también posición)
-            // settings.saveWindowPosition(primaryStage.getX(), primaryStage.getY());
-            // Si quieres guardar el tamaño basado en el tamaño final al cerrar:
-            // double finalBaseSize = calculateBaseFontSize(primaryStage.getWidth()); // Necesitarías mover calculateBaseFontSize a UISettings o aquí
-            // settings.saveBaseFontSize(finalBaseSize);
+        // Establecer el tamaño inicial explícitamente para evitar cambios aleatorios
+        primaryStage.setWidth(size[0]);
+        primaryStage.setHeight(size[1]);
 
+        // 8. Guardar el tamaño cuando el usuario lo cambia manualmente o cierra la ventana
+        primaryStage.widthProperty().addListener((obs, oldVal, newVal) -> {
+            if (primaryStage.isShowing() && !primaryStage.isIconified() && !primaryStage.isMaximized()) {
+                settings.saveWindowSize(newVal.doubleValue(), primaryStage.getHeight());
+            }
+        });
+
+        primaryStage.heightProperty().addListener((obs, oldVal, newVal) -> {
+            if (primaryStage.isShowing() && !primaryStage.isIconified() && !primaryStage.isMaximized()) {
+                settings.saveWindowSize(primaryStage.getWidth(), newVal.doubleValue());
+            }
+        });
+
+        primaryStage.setOnCloseRequest(event -> {
+            // Guardar tamaño final al cerrar
+            if (!primaryStage.isMaximized()) {
+                settings.saveWindowSize(primaryStage.getWidth(), primaryStage.getHeight());
+            }
             Platform.exit();
             System.exit(0);
         });
@@ -92,6 +112,8 @@ public class Main extends Application {
         // --- FIN DE MODIFICACIÓN ---
 
         primaryStage.show();
+
+        // Centrar después de mostrar para asegurar posición correcta
         primaryStage.centerOnScreen();
     }
 

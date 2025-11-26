@@ -33,6 +33,8 @@ import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 public class MainController {
 
+    public ToggleButton btnReportes;
+    public ToggleButton btnConfiguracion;
     @FXML
     private StackPane mainContentArea;
     @FXML
@@ -41,8 +43,8 @@ public class MainController {
     private ToggleButton btnCatalogo; // Botón de catálogo
     @FXML private ToggleButton btnInventario;
     @FXML private VBox subInventarioMenu;
-    @FXML private Button btnSubProductos;
-    @FXML private Button btnSubInsumos;
+    @FXML private ToggleButton btnSubProductos;
+    @FXML private ToggleButton btnSubInsumos;
     // Formateador para la fecha y hora
     private static final DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
     private final IProductRepository productRepository = new ProductRepositorySQLite();
@@ -94,7 +96,7 @@ public class MainController {
 
             InventarioController controller = loader.getController();
 
-            // 🚨 CRÍTICO: Llamar al nuevo método setter después de cargar el FXML
+            // 🚨 CRÍTICO: Llamar al nuevo setter después de cargar el FXML
             controller.setCatalogService(this.catalogService);
 
             // Cargar la vista en el área principal
@@ -170,6 +172,7 @@ public class MainController {
     @FXML
     private void handleToggleInventarioSubMenu(ActionEvent event) {
         boolean isSelected = btnInventario.isSelected();
+        btnSubProductos.setSelected(true);
         subInventarioMenu.setVisible(isSelected);
         subInventarioMenu.setManaged(isSelected);
 
@@ -181,7 +184,7 @@ public class MainController {
             });
         } else {
             // Opcional: limpiar la vista si el toggle se desactiva
-            // mainContentArea.getChildren().clear();
+            mainContentArea.getChildren().clear();
         }
     }
     @FXML
@@ -203,7 +206,7 @@ public class MainController {
             InventarioController controller = loader.getController();
             controller.setCatalogService(this.catalogService); // Inyección de dependencia
 
-            // 🚨 NUEVO MÉTODO CRÍTICO: Indica al controlador interno qué vista mostrar
+            // 🚨 CRÍTICO: Indica al controlador interno qué vista mostrar
             controller.setActiveView(showProducts);
 
             mainContentArea.getChildren().setAll(view);
