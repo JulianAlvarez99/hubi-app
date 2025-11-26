@@ -114,7 +114,7 @@ class CatalogServiceTest {
         // 1. Mock de Repositorio de Productos para simular éxito
         IProductRepository mockProductRepositorySuccess = new IProductRepository() {
             @Override public void decreasePieceStockBatch(List<PieceStockDeduction> deductions) {} // Simula éxito
-            // Stubs para el resto de los métodos
+            // Stubs para el resto de los Methods
             @Override public String getNextCorrelative(String prefijoSeisLetras) { return null; }
             @Override public long save(Product product) { return 0; }
             @Override public Product findByCode(String code) { return null; }
@@ -164,13 +164,13 @@ class CatalogServiceTest {
 
         // 1. Mock de Repositorio de Productos para simular FALLO (decreasePieceStockBatch)
         IProductRepository mockProductRepositoryFail = new IProductRepository() {
-            // Implementación del método transaccional para el test: FALLO
+            // Implementación del Method transaccional para el test: FALLO
             @Override
             public void decreasePieceStockBatch(List<PieceStockDeduction> deductions) {
                 // Simulación de fallo: lanza RuntimeException
                 throw new RuntimeException("Stock insuficiente forzado para test.");
             }
-            // Stubs para el resto de los métodos
+            // Stubs para el resto de los Methods
             @Override public String getNextCorrelative(String prefijoSeisLetras) { return null; }
             @Override public long save(Product product) { return 0; }
             @Override public Product findByCode(String code) { return null; }

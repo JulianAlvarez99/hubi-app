@@ -142,7 +142,7 @@ public class MasterProductRepositorySQLite implements IMasterProductRepository {
         return saveNewProduct(product, 0.0);
     }
 
-    // --- Métodos de Stock y Lectura ---
+    // --- Methods de Stock y Lectura ---
 
     @Override
     public void increaseStock(String masterCode, int quantity) {

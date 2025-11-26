@@ -94,7 +94,7 @@ public class SupplyRepositorySQLite implements ISupplyRepository {
         }
     }
 
-    // --- Resto de métodos CRUD (Sin cambios) ---
+    // --- Resto de Methods CRUD (Sin cambios) ---
 
     @Override
     public void add(Supply supply) {

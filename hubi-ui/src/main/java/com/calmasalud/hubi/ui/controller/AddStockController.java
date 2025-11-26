@@ -57,7 +57,7 @@ public class AddStockController {
         stage.close();
     }
 
-    // Método auxiliar para mostrar alertas (para la validación dentro del modal)
+    // Method auxiliar para mostrar alertas (para la validación dentro del modal)
     private void showAlert(AlertType type, String title, String content) {
         Alert alert = new Alert(type);
         alert.setTitle(title);

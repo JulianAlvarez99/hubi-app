@@ -142,7 +142,7 @@ public class UISettings {
     }
 
     /**
-     * Versión principal de 4 argumentos. Llamada por métodos estáticos.
+     * Versión principal de 4 argumentos. Llamada por Methods estáticos.
      */
     public static void showAlert(Alert.AlertType type, String title, String header, String content) {
         Alert alert = new Alert(type);

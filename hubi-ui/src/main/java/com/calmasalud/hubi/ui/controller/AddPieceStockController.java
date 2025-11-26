@@ -174,7 +174,7 @@ public class AddPieceStockController {
         stage.close();
     }
 
-    // Método local de ayuda mejorado para alertas grandes
+    // Method local de ayuda mejorado para alertas grandes
     private void showAlert(AlertType type, String title, String content) {
         Alert alert = new Alert(type);
         alert.setTitle(title);

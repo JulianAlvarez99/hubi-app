@@ -88,7 +88,7 @@ public class TipoCargaController {
             System.getProperty("user.home") + File.separator + "SistemaHUBI" + File.separator + "RepositorioArchivos";
 
 
-    // --- Métodos ---
+    // --- Methods ---
 
     public void setDirectorioProducto(File directorioProducto) {
         this.directorioProducto = directorioProducto;
@@ -385,7 +385,7 @@ public class TipoCargaController {
                     }
                 }
             } else {
-                // Modo Producto: Llamada al método de lista (REQ 1)
+                // Modo Producto: Llamada al Method de lista (REQ 1)
                 try {
                     catalogoService.procesarCargaProducto(this.archivosSeleccionados, valorIngresado.trim());
                     archivosCargados = this.archivosSeleccionados.size();
@@ -437,7 +437,7 @@ public class TipoCargaController {
     }
 
     /**
-     * NUEVO MÉTODO AUXILIAR: Muestra alerta con opción Cancelar/Continuar.
+     * NUEVO Method AUXILIAR: Muestra alerta con opción Cancelar/Continuar.
      */
     private Optional<ButtonType> mostrarAlertaConOpcion(String titulo, String cabecera, String mensaje) {
         Alert alert = new Alert(AlertType.CONFIRMATION);

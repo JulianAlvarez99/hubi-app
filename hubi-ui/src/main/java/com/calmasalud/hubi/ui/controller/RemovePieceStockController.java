@@ -110,7 +110,7 @@ public class RemovePieceStockController {
             String pieceNameBase = this.pieceName.substring(0, this.pieceName.lastIndexOf('.'));
             String colorUsed = cmbColor1.getValue();
 
-            // Llama al método que verifica el stock antes de restar
+            // Llama al Method que verifica el stock antes de restar
             productRepository.decreasePieceStockQuantity(pieceNameBase, colorUsed, quantity);
 
             // 3. Si la persistencia fue exitosa, confirmamos el resultado

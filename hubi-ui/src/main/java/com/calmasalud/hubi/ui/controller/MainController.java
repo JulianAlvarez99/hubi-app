@@ -81,7 +81,7 @@ public class MainController {
         clock.play();
     }
 
-    // Métodos 'onAction' de los botones
+    // Methods 'onAction' de los botones
     @FXML
     void handleMenuCatalogo(ActionEvent event) {
         System.out.println("Cargando vista Catálogo...");

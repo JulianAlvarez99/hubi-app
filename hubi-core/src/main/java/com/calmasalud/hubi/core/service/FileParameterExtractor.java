@@ -132,7 +132,7 @@ public class FileParameterExtractor {
         public final java.util.Map<Integer, FilamentProfile> filamentProfiles = new java.util.HashMap<>();
     }
 
-    // --- MÉTODO DE EXTRACCIÓN PRINCIPAL ---
+    // --- Method DE EXTRACCIÓN PRINCIPAL ---
 
     public PrintInfo extract(List<File> files) {
         PrintInfo info = new PrintInfo();
@@ -594,7 +594,7 @@ public class FileParameterExtractor {
     }
 
 
-    // --- MÉTODOS AUXILIARES (del extractor) ---
+    // --- MethodS AUXILIARES (del extractor) ---
 
     private static String getColorNameFromHex(String hex) {
         if (hex == null || !hex.matches("#[0-9a-fA-F]{6}")) {

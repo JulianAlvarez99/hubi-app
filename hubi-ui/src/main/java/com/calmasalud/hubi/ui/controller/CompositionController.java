@@ -143,7 +143,7 @@ public class CompositionController {
     }
 
     private void showAlert(AlertType type, String title, String content) {
-        // Delegamos la llamada al método estático de la clase de utilidad,
+        // Delegamos la llamada al Method estático de la clase de utilidad,
         // pasando null como header, que es el patrón más común.
         UISettings.showAlert(type, title, null, content);
     }

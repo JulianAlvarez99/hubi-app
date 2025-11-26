@@ -160,7 +160,7 @@ public class InventarioController {
     }
 
     /**
-     * Método Público llamado por MainController para cambiar la vista activa.
+     * Method Público llamado por MainController para cambiar la vista activa.
      * @param showProducts true = Productos, false = Insumos
      */
     public void setActiveView(boolean showProducts) {
@@ -191,7 +191,7 @@ public class InventarioController {
     }
 
     // =====================================================================
-    // 4. MÉTODOS DE CARGA DE DATOS
+    // 4. MethodS DE CARGA DE DATOS
     // =====================================================================
 
     /**
@@ -557,7 +557,7 @@ public class InventarioController {
                     return;
                 }
 
-                // 4. Lógica de Persistencia: Llamar al método de disminución de stock por color
+                // 4. Lógica de Persistencia: Llamar al Method de disminución de stock por color
                 productRepository.decreasePieceStockQuantity(pieceNameBase, colorName, quantityToRemove);
 
                 showAlert(AlertType.INFORMATION, "Éxito", quantityToRemove + " unidades de " + pieceNameBase + " (" + colorName + ") descontadas.");

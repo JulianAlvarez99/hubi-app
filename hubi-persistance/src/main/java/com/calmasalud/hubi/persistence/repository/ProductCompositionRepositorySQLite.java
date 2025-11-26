@@ -30,7 +30,7 @@ public class ProductCompositionRepositorySQLite implements IProductCompositionRe
         initializeTable();
     }
 
-    // 🚨 CORRECCIÓN: Método privado sin @Override
+    // 🚨 CORRECCIÓN: Method privado sin @Override
     private void initializeTable() {
         // Definición de la tabla composition de SQLiteManager
         String sql = "CREATE TABLE IF NOT EXISTS product_composition ("
@@ -50,7 +50,7 @@ public class ProductCompositionRepositorySQLite implements IProductCompositionRe
         }
     }
 
-    // Este método no implementa una interfaz, por lo que no lleva @Override
+    // Este Method no implementa una interfaz, por lo que no lleva @Override
     public void saveComposition(String masterCode, List<ProductComposition> composition) {
         // master_code, piece_name_base, required_quantity
         String sql = "INSERT INTO product_composition (master_code, piece_name_base, required_quantity) VALUES (?, ?, ?)";

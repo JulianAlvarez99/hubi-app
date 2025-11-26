@@ -39,7 +39,7 @@ public class CatalogService {
     private static final String COLOR_POR_DEFECTO = "ROJO"; // Example, consider making configurable
 
     /**
-     * Implementa la lógica de RF8 para generar códigos únicos. (MÉTODO PÚBLICO SIMPLE)
+     * Implementa la lógica de RF8 para generar códigos únicos. (Method PÚBLICO SIMPLE)
      * FORMATO: [PROD 3 letras][COLOR 3 letras][CORRELATIVO 3 dígitos]
      * @param productName Nombre del producto/pieza.
      * @return El código de producto/pieza generado.
@@ -106,7 +106,7 @@ public class CatalogService {
         return rutaDestinoFinal.toFile(); // Devuelve el archivo copiado en el repositorio
     }
 
-    // --- MÉTODOS AUXILIARES DE ARCHIVOS (REQ 2 & 3) ---
+    // --- MethodS AUXILIARES DE ARCHIVOS (REQ 2 & 3) ---
 
     /* Función auxiliar para obtener la extensión de un archivo (incluyendo el punto).
      * Devuelve "" si no hay extensión.
@@ -648,8 +648,8 @@ public class CatalogService {
         // Asumimos que la implementación del repositorio existe y se llama aquí:
         // return masterProductRepository.findByProductPrefix(prefix);
 
-        // STUB TEMPORAL: Para que el código compile ahora, si el método no está en la interfaz.
-        // Si el método no existe, esto causará un error. Asumiendo que SÍ existe:
+        // STUB TEMPORAL: Para que el código compile ahora, si el Method no está en la interfaz.
+        // Si el Method no existe, esto causará un error. Asumiendo que SÍ existe:
         return masterProductRepository.findByProductPrefix(prefix);
     }
 
@@ -705,7 +705,7 @@ public class CatalogService {
         }
 
         try {
-            // Llamada al método transaccional del repositorio
+            // Llamada al Method transaccional del repositorio
             productRepository.decreasePieceStockBatch(deductions);
 
         } catch (RuntimeException e) {
@@ -718,7 +718,7 @@ public class CatalogService {
 
         // Busca si ya existe un insumo con el mismo tipo y color.
         // NOTA: Esta búsqueda es ineficiente si la lista es grande.
-        // Idealmente, ISupplyRepository debería tener un método findByColorAndType.
+        // Idealmente, ISupplyRepository debería tener un Method findByColorAndType.
         for (Supply s : supplyRepository.listAll()) {
             if (s.getColorFilamento().equalsIgnoreCase(supply.getColorFilamento()) &&
                     s.getTipoFilamento().equalsIgnoreCase(supply.getTipoFilamento())) {
@@ -933,7 +933,7 @@ public class CatalogService {
 
         return reportMessages;
     }
-    // Método auxiliar privado para buscar el insumo (Parseo robusto)
+    // Method auxiliar privado para buscar el insumo (Parseo robusto)
     private Supply findSupplyByColorKey(List<Supply> allSupplies, String colorKey) {
         // Parseo: Busca el ÚLTIMO espacio para separar "ROJO" de "PLA"
         // Permite colores compuestos como "AZUL OSCURO PLA"
