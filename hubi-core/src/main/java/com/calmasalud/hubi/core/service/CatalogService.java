@@ -933,6 +933,23 @@ public class CatalogService {
 
         return reportMessages;
     }
+    public void registerProductAssembly(String masterCode, List<PieceStockDeduction> componentsUsed, int quantityProduced) throws IOException {
+        if (componentsUsed == null || componentsUsed.isEmpty()) {
+            throw new IllegalArgumentException("La lista de componentes no puede estar vacía.");
+        }
+
+        // 1. Descontar las piezas del stock (Lógica que antes usabas al eliminar)
+        try {
+            productRepository.decreasePieceStockBatch(componentsUsed);
+        } catch (RuntimeException e) {
+            throw new IOException("Error al descontar piezas: " + e.getMessage(), e);
+        }
+
+        // 2. Aumentar el stock del producto terminado (Lógica que antes usabas al agregar simple)
+        masterProductRepository.increaseStock(masterCode, quantityProduced);
+
+        System.out.println("✅ Ensamblaje registrado: " + quantityProduced + " unidades de " + masterCode);
+    }
     // Method auxiliar privado para buscar el insumo (Parseo robusto)
     private Supply findSupplyByColorKey(List<Supply> allSupplies, String colorKey) {
         // Parseo: Busca el ÚLTIMO espacio para separar "ROJO" de "PLA"

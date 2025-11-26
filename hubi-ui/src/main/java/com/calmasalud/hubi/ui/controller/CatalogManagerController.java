@@ -183,19 +183,39 @@ public class CatalogManagerController {
             }
         });
 
-        // Configuración de las columnas de la TableView (sin cambios)
         colNombre.setCellValueFactory(cellData -> {
             File archivo = cellData.getValue();
-            String fileName = archivo.getName();
-            String code = "";
-            if (fileName.contains(".")) {
-                code = fileName.substring(0, fileName.lastIndexOf('.'));
-            } else {
-                return new SimpleStringProperty(fileName);
+            String fileName = archivo.getName(); // Ej: SOPROJ001.stl
+            String realExtension = "";
+
+            // 1. Obtenemos la extensión REAL del archivo en disco
+            int dotIndexFile = fileName.lastIndexOf('.');
+            if (dotIndexFile > 0) {
+                realExtension = fileName.substring(dotIndexFile); // Ej: ".stl"
             }
 
+            // 2. Obtenemos el código para buscar en la BD
+            String code = (dotIndexFile > 0) ? fileName.substring(0, dotIndexFile) : fileName;
+
             Product product = catalogoService.getProductDetails(code);
-            String nameToShow = (product != null && product.getName() != null) ? product.getName() : fileName;
+
+            String nameToShow;
+            if (product != null && product.getName() != null) {
+                // 3. Obtenemos el nombre original de la BD (Ej: "MiPiezaOriginal.gcode")
+                String dbName = product.getName();
+
+                // 4. Le quitamos la extensión vieja que traiga de la BD
+                int dotIndexDb = dbName.lastIndexOf('.');
+                if (dotIndexDb > 0) {
+                    dbName = dbName.substring(0, dotIndexDb); // Ej: "MiPiezaOriginal"
+                }
+
+                // 5. CORRECCIÓN: Unimos Nombre BD + Extensión REAL
+                nameToShow = dbName + realExtension; // Resultado: "MiPiezaOriginal.stl"
+            } else {
+                nameToShow = fileName;
+            }
+
             return new SimpleStringProperty(nameToShow);
         });
 
@@ -250,6 +270,16 @@ public class CatalogManagerController {
 
         // Carga inicial del TreeView y TableView
         refrescarVistaCatalogo();
+        txtBusqueda.textProperty().addListener((observable, oldValue, newValue) -> {
+            filtrarCatalogo(newValue);
+        });
+        btnActualizar.setText("Limpiar");
+
+        btnActualizar.setOnAction(event -> {
+            txtBusqueda.clear(); // Esto borra el texto -> Dispara el listener -> Recarga el catálogo completo
+            // Opcional: Devolver el foco al árbol o a la tabla
+            folderTreeView.requestFocus();
+        });
     }
     //Asegura que el directorio exista y notifica si se crea.
     private boolean ensureRepositoryExists() {
@@ -855,5 +885,64 @@ public class CatalogManagerController {
         DialogPane dialogPane = alert.getDialogPane();
         dialogPane.getStyleClass().add("hubi-dialog");
         alert.showAndWait();
+    }
+    /**
+     * Filtra el árbol de directorios según el texto ingresado.
+     */
+    private void filtrarCatalogo(String texto) {
+        // Si el texto está vacío, volvemos a cargar todo normal
+        if (texto == null || texto.trim().isEmpty()) {
+            refrescarVistaCatalogo();
+            return;
+        }
+
+        String textoLower = texto.toLowerCase();
+
+        // Creamos un nuevo árbol filtrado
+        TreeItem<File> rootFiltrado = createFilteredNode(REPOSITORIO_BASE, textoLower);
+
+        // Si no se encontró nada, rootFiltrado tendrá la raíz pero sin hijos.
+        folderTreeView.setRoot(rootFiltrado);
+    }
+
+    /**
+     * Método recursivo que construye el árbol SOLO con las carpetas que coinciden.
+     */
+    private TreeItem<File> createFilteredNode(File dir, String texto) {
+        TreeItem<File> item = new TreeItem<>(dir);
+        boolean mostrarEsteNodo = false;
+
+        // 1. Verificamos si ESTA carpeta coincide con la búsqueda (ignoramos la raíz base)
+        if (!dir.equals(REPOSITORIO_BASE) && dir.getName().toLowerCase().contains(texto)) {
+            mostrarEsteNodo = true;
+        }
+
+        // 2. Buscamos recursivamente en los hijos
+        File[] children = dir.listFiles();
+        if (children != null) {
+            for (File child : children) {
+                // Solo nos interesan las carpetas (los archivos van a la tabla de la derecha)
+                if (child.isDirectory() && !child.getName().startsWith(".")) {
+
+                    // Llamada recursiva mágica
+                    TreeItem<File> childItem = createFilteredNode(child, texto);
+
+                    // Si el hijo devolvió algo (es decir, él o sus descendientes coinciden)
+                    if (childItem != null) {
+                        item.getChildren().add(childItem);
+                        mostrarEsteNodo = true; // Si tengo un hijo que coincide, yo también debo apareer
+                        item.setExpanded(true); // Expandimos para que el usuario vea el resultado
+                    }
+                }
+            }
+        }
+
+        // 3. Retornar el nodo solo si es relevante (coincide nombre o tiene hijos que coinciden)
+        // La raíz base (REPOSITORIO_BASE) siempre se devuelve para sostener el árbol.
+        if (mostrarEsteNodo || dir.equals(REPOSITORIO_BASE)) {
+            return item;
+        }
+
+        return null; // Si no cumplo nada, me descarto del árbol
     }
 }

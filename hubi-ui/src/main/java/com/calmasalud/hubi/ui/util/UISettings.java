@@ -144,12 +144,22 @@ public class UISettings {
     /**
      * Versión principal de 4 argumentos. Llamada por Methods estáticos.
      */
+    /**
+     * Versión principal de 4 argumentos. Llamada por Methods estáticos.
+     */
     public static void showAlert(Alert.AlertType type, String title, String header, String content) {
         Alert alert = new Alert(type);
         alert.setTitle(title);
         alert.setHeaderText(header);
         alert.setContentText(content);
         alert.getDialogPane().getStyleClass().add("hubi-dialog");
+
+        // --- CORRECCIÓN VISUAL: AJUSTE DE TAMAÑO ---
+        alert.setResizable(true); // 1. Permitir que el usuario pueda estirar la ventana si quiere
+        alert.getDialogPane().setMinHeight(javafx.scene.layout.Region.USE_PREF_SIZE); // 2. Obligar a calcular la altura necesaria para todo el texto
+        alert.getDialogPane().setMinWidth(550); // 3. Darle un ancho base más amplio (antes solía ser muy estrecho)
+        // -------------------------------------------
+
         alert.showAndWait();
     }
 
