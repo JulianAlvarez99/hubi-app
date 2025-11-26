@@ -7,7 +7,8 @@
 
 ## 📖 Description
 
-Hubi App is a comprehensive printing hub application designed for efficient management of printing resources. Whether you're managing a small office printer or a large-scale printing network, Hubi App provides the tools you need to streamline operations, track usage, and optimize performance.
+Hubi App is a comprehensive printing hub application designed for efficient management of printing resources. Whether you're managing a small 
+office printer or a large-scale printing network, Hubi App provides the tools you need to streamline operations, track usage, and optimize performance.
 
 ## ✨ Features
 
@@ -15,13 +16,13 @@ Hubi App is a comprehensive printing hub application designed for efficient mana
 - **Print Job Tracking**: Monitor and log all print jobs.
 - **Resource Allocation**: Allocate printers and resources dynamically.
 - **Reporting**: Generate detailed reports on usage and costs.
-- **Web Interface**: Easy-to-use web-based interface built with Java and styled with CSS.
+- **Desktop Interface**: Easy-to-use Desktop-based interface built with Java and styled with CSS.
 
 ## 🛠 Tech Stack
 
-- **Backend**: Java
-- **Frontend**: CSS (with potential for more web tech)
-- **Database**: [Specify if known, e.g., MySQL]
+- **Backend**: Java JDK 24
+- **Frontend**: JavaFX & CSS (with potential for more web tech)
+- **Database**: SQLite
 
 ## 🚀 Installation
 
@@ -40,14 +41,6 @@ Hubi App is a comprehensive printing hub application designed for efficient mana
 ## 📋 Usage
 
 [Explain how to run the app]
-
-## 🤝 Contributing
-
-Contributions are welcome! Please fork the repository and submit a pull request.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 📞 Contact
 
