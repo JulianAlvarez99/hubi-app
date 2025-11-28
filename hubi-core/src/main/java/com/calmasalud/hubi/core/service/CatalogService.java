@@ -716,35 +716,42 @@ public class CatalogService {
     public void addOrModifySupplyStock(Supply supply) {
         Supply existingSupply = null;
 
-        // Busca si ya existe un insumo con el mismo tipo y color.
-        // NOTA: Esta búsqueda es ineficiente si la lista es grande.
-        // Idealmente, ISupplyRepository debería tener un Method findByColorAndType.
+        // 1. Buscamos coincidencias
         for (Supply s : supplyRepository.listAll()) {
             if (s.getColorFilamento().equalsIgnoreCase(supply.getColorFilamento()) &&
-                    s.getTipoFilamento().equalsIgnoreCase(supply.getTipoFilamento())) {
+                    s.getTipoFilamento().equalsIgnoreCase(supply.getTipoFilamento()) &&
+                    s.getName().equalsIgnoreCase(supply.getName())) {
+
                 existingSupply = s;
                 break;
             }
         }
 
         if (existingSupply != null) {
-            // Modificar (sumar el nuevo stock al existente)
+            // --- CASO FUSIÓN (No gastamos código) ---
             double newQuantity = existingSupply.getCantidadDisponible() + supply.getCantidadDisponible();
             existingSupply.setCantidadDisponible(newQuantity);
-
-            // También se actualizan los otros campos por si se modificaron (código, nombre, umbral)
-            existingSupply.setName(supply.getName());
-            existingSupply.setCode(supply.getCode());
             existingSupply.setUmbralAlerta(supply.getUmbralAlerta());
 
             supplyRepository.modify(existingSupply);
+            System.out.println("✅ Stock fusionado con éxito.");
+
         } else {
-            // Agregar nuevo insumo
+            // --- CASO NUEVO (Aquí sí generamos el código) ---
             if (supply.getCantidadDisponible() > 0) {
+
+                // 🚨 CAMBIO CLAVE: Generamos el código AQUÍ, solo si realmente vamos a guardar.
+                // Si el objeto venía sin código, se lo ponemos ahora.
+                if (supply.getCode() == null || supply.getCode().isEmpty() || supply.getCode().equals("TEMP")) {
+                    String nuevoCodigo = supplyRepository.getNextCorrelativeCode(
+                            supply.getColorFilamento(),
+                            supply.getTipoFilamento()
+                    );
+                    supply.setCode(nuevoCodigo);
+                }
+
                 supplyRepository.add(supply);
-            } else {
-                // No se agrega un insumo con cantidad 0 por primera vez, o se lanza una excepción.
-                // Aquí se opta por no agregarlo si la cantidad es <= 0.
+                System.out.println("✅ Nuevo insumo creado con código: " + supply.getCode());
             }
         }
     }
@@ -768,24 +775,44 @@ public class CatalogService {
             throw new IllegalArgumentException("La cantidad a descontar debe ser positiva.");
         }
 
-        // Permitimos que la cantidad sea IGUAL al stock actual (para eliminarlo todo)
         // Usamos una pequeña tolerancia (epsilon) para comparaciones de punto flotante
         if (quantity > (currentQuantity + 0.001)) {
-            throw new IllegalArgumentException("No hay suficiente stock. Disponible: " + currentQuantity + " gramos. Intentando descontar: " + quantity + " gramos.");
+            throw new IllegalArgumentException("No hay suficiente stock. Disponible: " + String.format("%.2f", currentQuantity) + " gramos. Intentando descontar: " + String.format("%.2f", quantity) + " gramos.");
         }
 
         double newQuantity = currentQuantity - quantity;
 
-        // 🚨 LÓGICA DE ELIMINACIÓN AUTOMÁTICA
-        // Si el nuevo stock es 0 (o negativo por error de redondeo), eliminamos el insumo.
+
         if (newQuantity <= 0.01) {
-            supplyRepository.delete(id); // Borrado físico de la BD
-            System.out.println("ℹ️ Insumo eliminado por stock agotado: ID " + id);
+            supply.setCantidadDisponible(0.0); // Poner stock a cero
+            supplyRepository.modify(supply); // Mantenemos el registro en la BD
+            System.out.println("ℹ️ Stock agotado. Insumo ID " + id + " mantenido en el catálogo con 0g de stock.");
         } else {
-            // Si sobra stock, solo actualizamos la cantidad
             supply.setCantidadDisponible(newQuantity);
             supplyRepository.modify(supply);
         }
+
+    }
+    /**
+     * Elimina permanentemente un insumo del catálogo por su ID.
+     * Solo se permite si el stock es cero (por buena práctica de inventario).
+     * @param id El ID del insumo a eliminar.
+     * @throws IllegalArgumentException Si el insumo tiene stock disponible.
+     */
+    public void deleteSupplyPermanently(long id) throws IllegalArgumentException {
+        Supply supply = supplyRepository.findByID(id);
+        if (supply == null) {
+            throw new IllegalArgumentException("Insumo no encontrado con ID: " + id);
+        }
+
+        // Validación de stock cero antes de la eliminación permanente
+        if (supply.getCantidadDisponible() > 0.01) {
+            throw new IllegalArgumentException("No se puede eliminar un insumo que tiene stock disponible (" + String.format("%.2f", supply.getCantidadDisponible()) + "g). Descarte el stock primero.");
+        }
+
+        // Eliminación física del registro de la BD
+        supplyRepository.delete(id);
+        System.out.println("✅ Insumo eliminado permanentemente del catálogo: ID " + id + ", Código " + supply.getCode());
     }
     /**
      * Obtiene el listado completo de insumos.
@@ -802,7 +829,8 @@ public class CatalogService {
     public List<String> getAvailableFilamentColors() {
         return supplyRepository.listAll().stream()
                 .filter(s -> s.getCantidadDisponible() > 0) // Solo los que tienen stock
-                .map(s -> s.getColorFilamento() + " " + s.getTipoFilamento())
+                // CAMBIO: Agregamos el nombre y un separador "|"
+                .map(s -> s.getName() + " | " + s.getColorFilamento() + " " + s.getTipoFilamento())
                 .distinct()
                 .sorted()
                 .collect(Collectors.toList());
@@ -889,7 +917,7 @@ public class CatalogService {
 
         // 3. EJECUCIÓN: DESCUENTO DE STOCK
         if (!selectedColors.isEmpty() && !weights.isEmpty()) {
-            // Recargamos la lista para tener los datos más frescos posibles
+            // Recargamos la lista para encontrar la referencia por colorKey
             List<Supply> allSupplies = supplyRepository.listAll();
 
             for (int i = 0; i < selectedColors.size(); i++) {
@@ -898,15 +926,46 @@ public class CatalogService {
                 double totalRequiredForBatch = weightForThisColorUnit * quantity;
 
                 if (totalRequiredForBatch > 0) {
-                    Supply supply = findSupplyByColorKey(allSupplies, colorKey);
 
-                    // Cálculos para el reporte
-                    double previousStock = supply.getCantidadDisponible();
+                    // Usamos findSupplyByColorKey solo para obtener el ID de referencia
+                    Supply supplyRef = findSupplyByColorKey(allSupplies, colorKey);
+                    if (supplyRef == null) continue;
+
+                    // OBTENER EL ESTADO FRESCO DEL INSUMO (CRÍTICO: antes de la deducción)
+                    Supply freshSupply = getSupplyById(supplyRef.getId()); // Carga el estado actual de la DB
+                    if (freshSupply == null) continue;
+
+                    // 1. Usar los valores FRESCOS
+                    double previousStock = freshSupply.getCantidadDisponible();
+                    double umbral = freshSupply.getUmbralAlerta();
                     double newStock = previousStock - totalRequiredForBatch;
                     if (newStock < 0) newStock = 0;
 
-                    // Descontar (Llama a removeSupplyStock que borra si llega a 0)
-                    removeSupplyStock(supply.getId(), totalRequiredForBatch);
+                    // 2. Descontar (Llama a removeSupplyStock que modifica el DB)
+                    removeSupplyStock(freshSupply.getId(), totalRequiredForBatch);
+
+                    // --- INICIO DE LA VERIFICACIÓN DE UMBRAL (RF7) ROBUSTA ---
+
+                    final double EPSILON = 0.0001;
+
+                    // Check 1: El stock ANTERIOR debe haber estado por encima del umbral.
+                    // Usamos EPSILON para manejar la robustez de los puntos flotantes.
+                    boolean wasAboveUmbral = previousStock > umbral + EPSILON;
+
+                    // Check 2: El stock NUEVO debe estar en el umbral o por debajo.
+                    boolean isBelowOrAtUmbral = newStock < umbral + EPSILON;
+
+                    // LÍNEA DE DEBUG CRÍTICA: Muestra los valores y el resultado de la condición
+                    System.out.println("--- DEBUG UMBRAL CHECK ---");
+                    System.out.println("Insumo: " + colorKey + " | PrevStock: " + previousStock + " | Umbral: " + umbral + " | NewStock: " + newStock);
+                    System.out.println("Condición 1 (wasAbove): " + wasAboveUmbral + " | Condición 2 (isBelow): " + isBelowOrAtUmbral + " | ALERTA: " + (wasAboveUmbral && isBelowOrAtUmbral));
+                    System.out.println("--------------------------");
+
+                    if (wasAboveUmbral && isBelowOrAtUmbral) {
+                        reportMessages.add("🚨 ALERTA UMBRAL: " + colorKey +
+                                " ha caído por debajo del umbral de " + String.format(Locale.US, "%.2f", umbral) + "g. Stock actual: " + String.format(Locale.US, "%.2f", newStock) + "g.");
+                    }
+                    // --- FIN DE LA VERIFICACIÓN ---
 
                     // Agregar al reporte
                     reportMessages.add(String.format("• %s (Prioridad %d): Descontado %.2fg. (Quedan %.2fg)",
@@ -951,30 +1010,81 @@ public class CatalogService {
         System.out.println("✅ Ensamblaje registrado: " + quantityProduced + " unidades de " + masterCode);
     }
     // Method auxiliar privado para buscar el insumo (Parseo robusto)
+    // Método auxiliar privado para buscar el insumo (Parseo robusto con Nombre)
     private Supply findSupplyByColorKey(List<Supply> allSupplies, String colorKey) {
-        // Parseo: Busca el ÚLTIMO espacio para separar "ROJO" de "PLA"
-        // Permite colores compuestos como "AZUL OSCURO PLA"
-        int lastSpaceIndex = colorKey.lastIndexOf(' ');
+        String targetName = "";
+        String colorAndType = "";
+
+        // 1. Intentamos separar el Nombre del resto usando el separador " | "
+        if (colorKey.contains(" | ")) {
+            String[] parts = colorKey.split(" \\| ");
+            if (parts.length >= 2) {
+                targetName = parts[0].trim();
+                colorAndType = parts[1].trim();
+            }
+        } else {
+            // Fallback por si acaso llega el formato viejo (solo COLOR TIPO)
+            colorAndType = colorKey;
+        }
+
+        // 2. Separar Color y Tipo (Lógica existente)
+        int lastSpaceIndex = colorAndType.lastIndexOf(' ');
         String color = "";
         String tipo = "";
 
         if (lastSpaceIndex != -1) {
-            color = colorKey.substring(0, lastSpaceIndex).trim(); // "ROJO"
-            tipo = colorKey.substring(lastSpaceIndex + 1).trim(); // "PLA"
+            color = colorAndType.substring(0, lastSpaceIndex).trim(); // "ROJO"
+            tipo = colorAndType.substring(lastSpaceIndex + 1).trim(); // "PLA"
         } else {
-            color = colorKey; // Fallback
+            color = colorAndType; // Fallback extremo
         }
 
         String finalColor = color;
         String finalTipo = tipo;
+        String finalName = targetName;
 
+        // 3. Búsqueda en la lista (Ahora incluye el Nombre si lo tenemos)
         return allSupplies.stream()
-                .filter(s -> s.getColorFilamento().equalsIgnoreCase(finalColor) &&
-                        s.getTipoFilamento().equalsIgnoreCase(finalTipo))
+                .filter(s -> {
+                    boolean matchesColorType = s.getColorFilamento().equalsIgnoreCase(finalColor) &&
+                            s.getTipoFilamento().equalsIgnoreCase(finalTipo);
+
+                    // Si tenemos nombre, también debe coincidir. Si no (formato viejo), lo ignoramos.
+                    boolean matchesName = finalName.isEmpty() || s.getName().equalsIgnoreCase(finalName);
+
+                    return matchesColorType && matchesName;
+                })
                 .findFirst()
                 .orElse(null);
     }
+    /**
+     * Obtiene un insumo por su ID (delegación al repositorio).
+     * @param id El ID del insumo.
+     * @return El objeto Supply o null si no se encuentra.
+     */
+    public Supply getSupplyById(long id) {
+        return supplyRepository.findByID(id);
+    }
+    /**
+     * Elimina permanentemente un insumo del catálogo por su ID, con opción a forzar
+     * la eliminación incluso si hay stock disponible.
+     *
+     * @param id El ID del insumo a eliminar.
+     * @param forceDeletion Si es true, ignora la verificación de stock > 0.
+     */
+    public void deleteSupplyPermanently(long id, boolean forceDeletion) {
+        Supply supply = supplyRepository.findByID(id);
+        if (supply == null) {
+            throw new IllegalArgumentException("Insumo no encontrado con ID: " + id);
+        }
 
+        if (!forceDeletion && supply.getCantidadDisponible() > 0.01) {
+            throw new IllegalArgumentException("No se puede eliminar un insumo que tiene stock disponible. Se requiere forzar la eliminación.");
+        }
 
+        // Eliminación física del registro de la BD
+        supplyRepository.delete(id);
+        System.out.println("✅ Insumo eliminado permanentemente (Forzado: " + forceDeletion + "): ID " + id);
+    }
 }
 

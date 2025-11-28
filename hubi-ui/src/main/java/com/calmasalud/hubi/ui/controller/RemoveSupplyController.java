@@ -66,17 +66,52 @@ public class RemoveSupplyController {
             return;
         }
 
+        // 1. CAPTURAR EL ESTADO ANTERIOR (Stock y Umbral)
+        // El objeto selectedSupply contiene el stock y umbral antes de la acción del usuario.
+        final double previousStock = selectedSupply.getCantidadDisponible();
+        final double umbral = selectedSupply.getUmbralAlerta();
+        final double EPSILON = 0.0001;
+
         try {
-            // Llama al servicio para descontar el stock (lógica implementada en CatalogService)
+            // 2. Llama al servicio para descontar el stock
             catalogService.removeSupplyStock(selectedSupply.getId(), quantityToDeduct);
 
-            // Actualizar la tabla principal y cerrar
+            // 3. Actualizar la tabla principal
             if (onStockUpdated != null) {
                 onStockUpdated.run();
             }
-            closeWindow(event);
 
-            showAlert(Alert.AlertType.INFORMATION, "Éxito", String.format("Se han descartado %.2f gramos de stock.", quantityToDeduct));
+            // 4. RECUPERAR EL INSUMO ACTUALIZADO (Estado post-descuento)
+            Supply updatedSupply = catalogService.getSupplyById(selectedSupply.getId());
+
+            if (updatedSupply != null) {
+                double currentStock = updatedSupply.getCantidadDisponible();
+
+                // --- LÓGICA DE NOTIFICACIÓN DE CRUCE DE UMBRAL (EXACTA) ---
+
+                if (currentStock < EPSILON) { // Caso 1: STOCK CERO (Prioridad máxima)
+                    showAlert(Alert.AlertType.WARNING,
+                            "¡Stock Agotado! ⚠️",
+                            "El insumo '" + updatedSupply.getName() + "' ha llegado a 0g de stock. \nSe mantendrá en el catálogo para ser repuesto.");
+                }
+                // Caso 2: CRUCE DE UMBRAL (Solo si venía de arriba y ahora está abajo)
+                else if (previousStock > umbral + EPSILON && currentStock < umbral + EPSILON) {
+                    showAlert(Alert.AlertType.WARNING,
+                            "Alerta de Umbral 🟡",
+                            "El insumo '" + updatedSupply.getName() + "' ha caído por debajo de su umbral de alerta (" + umbral + "g). Stock actual: " + String.format("%.2f", currentStock) + "g.");
+                }
+                // Caso 3: Éxito normal (Queda stock y no cruzó el umbral, O ya estaba debajo y se redujo más)
+                else {
+                    showAlert(Alert.AlertType.INFORMATION, "Éxito", String.format("Se han descartado %.2f gramos de stock. Stock restante: %.2f g", quantityToDeduct, currentStock));
+                }
+
+            } else {
+                // Si el insumo fue eliminado (lo cual no debería pasar con las correcciones previas)
+                showAlert(Alert.AlertType.INFORMATION, "Éxito", String.format("Se han descartado %.2f gramos de stock. Insumo removido del catálogo.", quantityToDeduct));
+            }
+
+            // 5. Cerrar la ventana
+            closeWindow(event);
 
         } catch (IllegalArgumentException e) {
             // Captura el error de stock insuficiente del CatalogService

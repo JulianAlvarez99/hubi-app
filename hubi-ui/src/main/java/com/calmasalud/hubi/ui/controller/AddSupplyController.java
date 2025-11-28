@@ -73,6 +73,16 @@ public class AddSupplyController {
 
         // La cantidad se deja vacía o en 0 para que el usuario ingrese la cantidad a sumar.
         txtCantidad.setText("0.0");
+
+
+        txtName.setEditable(false);
+        txtName.setStyle("-fx-control-inner-background: #e9e9e9;"); // Opcional: para indicarle al usuario que es de solo lectura
+
+        comboTipoFilamento.setDisable(true);
+
+        txtColorFilamento.setEditable(false);
+        txtColorFilamento.setStyle("-fx-control-inner-background: #e9e9e9;"); // Opcional: para indicarle al usuario que es de solo lectura
+
     }
 
     @FXML
@@ -105,34 +115,24 @@ public class AddSupplyController {
             return;
         }
 
-        // 2. Generar Código Automático (Si es nuevo)
-        String finalCode;
+        // 2. Preparar el Código (CORREGIDO PARA EVITAR SALTOS DE NUMERACIÓN)
+        String finalCode = null;
 
-        if (!isEditMode) {
-            // Obtenemos las primeras 3 letras del color
-            String colorPrefix = color.substring(0, Math.min(color.length(), 3));
-
-            try {
-                // Llamamos al servicio para generar el código correlativo
-                finalCode = catalogService.generateNextSupplyCode(colorPrefix, tipo);
-            } catch (RuntimeException e) {
-                showAlert(Alert.AlertType.ERROR, "Error", "No se pudo generar el código de insumo: " + e.getMessage());
-                e.printStackTrace(); // Imprimir error en consola para depuración
-                return;
-            }
-        } else {
-            // Si es modo edición, mantenemos el código existente
+        if (isEditMode && supplyToEdit != null) {
+            // Si estamos editando, MANTENEMOS el código que ya tiene el insumo.
             finalCode = supplyToEdit.getCode();
         }
+        // Si es nuevo (!isEditMode), dejamos finalCode en NULL.
+        // Esto le indica al CatalogService que NO gaste un número correlativo todavía.
 
         // 3. Crear objeto Supply y ASIGNAR TODOS LOS VALORES
         Supply newOrUpdatedSupply = new Supply();
-        if (isEditMode) {
-            newOrUpdatedSupply.setId(supplyToEdit.getId());
+
+        if (isEditMode && supplyToEdit != null) {
+            newOrUpdatedSupply.setId(supplyToEdit.getId()); // Mantener el ID de base de datos
         }
 
-        // ASIGNACIONES QUE FALTABAN:
-        newOrUpdatedSupply.setCode(finalCode);
+        newOrUpdatedSupply.setCode(finalCode); // Pasamos el código existente o NULL si es nuevo
         newOrUpdatedSupply.setName(name);
         newOrUpdatedSupply.setTipoFilamento(tipo);
         newOrUpdatedSupply.setColorFilamento(color);
@@ -141,12 +141,17 @@ public class AddSupplyController {
 
         // 4. Llamar al servicio
         try {
+            // El servicio ahora se encarga:
+            // - Si existe, lo fusiona.
+            // - Si no existe y el código es null, genera el siguiente correlativo y guarda.
             catalogService.addOrModifySupplyStock(newOrUpdatedSupply);
 
             // 5. Actualizar la tabla principal y cerrar
             if (onStockUpdated != null) {
                 onStockUpdated.run();
             }
+
+            // Asumo que tienes este método auxiliar definido en tu clase, si no, usa el de abajo
             closeWindow(event);
 
         } catch (Exception e) {

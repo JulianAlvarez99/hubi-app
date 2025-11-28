@@ -568,6 +568,18 @@ public class InventarioController {
 
     @FXML
     private void handleManageSupplyStock(ActionEvent event) {
+        // 1. Detectar si el clic viene del botón de "Agregar"
+        boolean esAgregar = (event.getSource() == btnAgregarInsumo);
+
+        Supply selectedSupply = tablaInsumos.getSelectionModel().getSelectedItem();
+
+        // 2. Validación CONDICIONAL
+        // Si NO es agregar (es decir, es Modificar) Y no hay nada seleccionado -> Error
+        if (!esAgregar && selectedSupply == null) {
+            showAlert(AlertType.WARNING, "Selección Requerida", "Seleccione un insumo de la lista para modificar sus datos.");
+            return;
+        }
+
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/calmasalud/hubi/ui/view/AddSupplyModal.fxml"));
             Parent parent = loader.load();
@@ -576,19 +588,25 @@ public class InventarioController {
             controller.setCatalogService(catalogService);
             controller.setOnStockUpdated(this::loadSupplyData);
 
-            Supply selectedSupply = tablaInsumos.getSelectionModel().getSelectedItem();
-            if (selectedSupply != null) {
+            // 3. Configuración según el modo
+            if (esAgregar) {
+                // Si es agregar, nos aseguramos de que no haya nada seleccionado visualmente
+                // para evitar confusiones, y NO le pasamos datos al controller.
+                tablaInsumos.getSelectionModel().clearSelection();
+            } else {
+                // Si es modificar, le pasamos los datos del insumo seleccionado
                 controller.setSupplyToEdit(selectedSupply);
             }
 
             Stage stage = new Stage();
-            stage.setTitle("Gestionar Stock de Filamento");
+            // Título dinámico para que quede más prolijo
+            stage.setTitle(esAgregar ? "Registrar Nuevo Insumo" : "Modificar Insumo Existente");
             stage.setScene(new Scene(parent));
             stage.initModality(Modality.APPLICATION_MODAL);
             stage.showAndWait();
 
         } catch (IOException e) {
-            showAlert(AlertType.ERROR, "Error", "No se pudo abrir la ventana de gestión.");
+            showAlert(AlertType.ERROR, "Error", "No se pudo abrir la ventana de gestión: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -622,7 +640,53 @@ public class InventarioController {
             e.printStackTrace();
         }
     }
+    /**
+     * Handler para eliminar permanentemente un insumo del catálogo (Requiere stock cero).
+     * Este método debe ser vinculado a un nuevo botón "Eliminar Insumo" en el FXML.
+     */
+    @FXML
+    private void handleDeleteSupplyPermanently(ActionEvent event) {
+        Supply selectedSupply = tablaInsumos.getSelectionModel().getSelectedItem();
 
+        if (selectedSupply == null) {
+            showAlert(Alert.AlertType.WARNING, "Selección Requerida", "Seleccione un insumo de la lista para eliminarlo permanentemente.");
+            return;
+        }
+
+        double stock = selectedSupply.getCantidadDisponible();
+        boolean requiresForce = stock > 0.01;
+
+        // --- PRIMERA CONFIRMACIÓN: Eliminación General ---
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Confirmar Eliminación");
+        alert.setHeaderText("Eliminar Insumo: " + selectedSupply.getName());
+        alert.setContentText("¿Está seguro de que desea eliminar permanentemente este insumo del catálogo?");
+
+        // --- SEGUNDA CONFIRMACIÓN (CONDICIONAL): Advertencia de Stock ---
+        if (requiresForce) {
+            alert.setContentText(alert.getContentText() +
+                    "\n\n🚨 ADVERTENCIA: El insumo tiene un stock de " + String.format("%.2f", stock) + "g. \n\n" +
+                    "Al eliminarlo, este stock se perderá permanentemente del sistema. ¿Desea continuar?");
+        }
+
+        Optional<ButtonType> result = alert.showAndWait();
+
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            try {
+                // Llama al nuevo método del CatalogService, pasando true si se requirió la confirmación forzada
+                catalogService.deleteSupplyPermanently(selectedSupply.getId(), requiresForce);
+
+                showAlert(Alert.AlertType.INFORMATION, "Éxito", "Insumo eliminado permanentemente del catálogo.");
+                loadSupplyData(); // Recargar la tabla
+
+            } catch (IllegalArgumentException e) {
+                showAlert(Alert.AlertType.ERROR, "Error de Eliminación", e.getMessage());
+            } catch (Exception e) {
+                showAlert(Alert.AlertType.ERROR, "Error", "Ocurrió un error al intentar eliminar el insumo.");
+                e.printStackTrace();
+            }
+        }
+    }
     // =====================================================================
     // 7. UTILIDADES AUXILIARES
     // =====================================================================
@@ -668,4 +732,5 @@ public class InventarioController {
         alert.getDialogPane().getStyleClass().add("hubi-dialog");
         alert.showAndWait();
     }
+
 }
