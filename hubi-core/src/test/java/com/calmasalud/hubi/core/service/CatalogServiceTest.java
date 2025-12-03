@@ -61,7 +61,7 @@ class CatalogServiceTest {
         @Override public String getNextCorrelativeCode(String colorName, String tipoFilamento) { return null; }
     };
 
-    // Método auxiliar para restablecer los contadores y datos antes de cada prueba de insumos
+    // Funcion auxiliar para restablecer los contadores y datos antes de cada prueba de insumos
     private void resetSupplyMockState() {
         deleteCallCount.set(0);
         modifyCallCount.set(0);
@@ -87,6 +87,7 @@ class CatalogServiceTest {
             @Override public void deletePieceStockByPieceNameBase(String pieceNameBase) {}
             @Override public void decreasePieceStockQuantity(String pieceNameBase, String colorName, int quantity){}
             @Override public void decreasePieceStockBatch(List<PieceStockDeduction> deductions) {}
+            @Override public void updateProductCost(String code, double cost) {}
         };
     }
 
@@ -137,6 +138,7 @@ class CatalogServiceTest {
             @Override public void deletePieceStockByPieceNameBase(String pieceNameBase) {}
             @Override public void decreasePieceStockQuantity(String pieceNameBase, String colorName, int quantity){}
             @Override public void decreasePieceStockBatch(List<PieceStockDeduction> deductions) {}
+            @Override public void updateProductCost(String code, double cost) {}
         };
 
         IMasterProductRepository mockMasterProductRepository = createMasterProductRepoStub();
@@ -179,6 +181,7 @@ class CatalogServiceTest {
             @Override public List<PieceStockColorView> getStockByPieceNameBase(String pieceNameBase) { return List.of(); }
             @Override public void deletePieceStockByPieceNameBase(String pieceNameBase) {}
             @Override public void decreasePieceStockQuantity(String pieceNameBase, String colorName, int quantity){}
+            @Override public void updateProductCost(String code, double cost) {}
         };
 
         IMasterProductRepository mockMasterProductRepository = createMasterProductRepoStub();
@@ -213,6 +216,7 @@ class CatalogServiceTest {
             @Override public List<PieceStockColorView> getStockByPieceNameBase(String pieceNameBase) { return List.of(); }
             @Override public void deletePieceStockByPieceNameBase(String pieceNameBase) {}
             @Override public void decreasePieceStockQuantity(String pieceNameBase, String colorName, int quantity){}
+            @Override public void updateProductCost(String code, double cost) {}
         };
 
         IMasterProductRepository mockMasterProductRepository = createMasterProductRepoStub();

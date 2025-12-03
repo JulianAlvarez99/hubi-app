@@ -36,7 +36,8 @@ public class SQLiteManager {
                     + "name TEXT NOT NULL,"
                     + "file_extension TEXT NOT NULL,"
                     + "peso_filamento_gramos REAL NOT NULL DEFAULT 0.0,"
-                    + "usage_detail TEXT DEFAULT ''"
+                    + "usage_detail TEXT DEFAULT '',"
+                    + "calculated_cost REAL DEFAULT 0.0"
                     + ");";
 
             // 2. Tabla para el control de correlativos (RF8)

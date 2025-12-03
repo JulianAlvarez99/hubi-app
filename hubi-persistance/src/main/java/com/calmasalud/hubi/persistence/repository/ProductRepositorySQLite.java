@@ -89,7 +89,7 @@ public class ProductRepositorySQLite implements IProductRepository {
     @Override
     public long save(Product product) {
         // 🚨 SQL Actualizado con usage_detail
-        String sql = "INSERT INTO products (code, name, file_extension, peso_filamento_gramos, usage_detail) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO products (code, name, file_extension, peso_filamento_gramos, usage_detail, calculated_cost) VALUES (?, ?, ?, ?, ?, ?)";
         long generatedId = -1;
 
         try (Connection conn = sqLiteManager.getConnection();
@@ -100,6 +100,7 @@ public class ProductRepositorySQLite implements IProductRepository {
             pstmt.setString(3, product.getFileExtension());
             pstmt.setDouble(4, product.getWeightGrams());
             pstmt.setString(5, product.getUsageDetail()); // 🚨 Guardar detalle
+            pstmt.setDouble(6, product.getCost());
 
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
@@ -117,11 +118,25 @@ public class ProductRepositorySQLite implements IProductRepository {
     }
 
     @Override
+    public void updateProductCost(String code, double cost) {
+        String sql = "UPDATE products SET calculated_cost = ? WHERE code = ?";
+        try (Connection conn = sqLiteManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setDouble(1, cost);
+            pstmt.setString(2, code);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("❌ Error al actualizar costo: " + e.getMessage());
+        }
+    }
+
+    @Override
     public Product findByCode(String code) {
-        // 🚨 SQL Actualizado
-        String sql = "SELECT code, name, file_extension, peso_filamento_gramos, usage_detail FROM products " +
+        // Actualizamos la consulta para traer el costo
+        String sql = "SELECT code, name, file_extension, peso_filamento_gramos, usage_detail, calculated_cost FROM products " +
                 "WHERE code = ? " +
                 "ORDER BY CASE WHEN file_extension LIKE '%.gcode' THEN 1 ELSE 2 END ASC LIMIT 1";
+
         Product product = null;
         try (Connection conn = sqLiteManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -133,11 +148,12 @@ public class ProductRepositorySQLite implements IProductRepository {
                         rs.getString("name"),
                         rs.getString("file_extension"),
                         rs.getDouble("peso_filamento_gramos"),
-                        rs.getString("usage_detail") // 🚨 Leer detalle
+                        rs.getString("usage_detail"),
+                        rs.getDouble("calculated_cost") // <--- LEER EL COSTO
                 );
             }
         } catch (SQLException e) {
-            System.err.println("Error al buscar producto por código: " + e.getMessage());
+            System.err.println("Error al buscar producto: " + e.getMessage());
         }
         return product;
     }
@@ -158,9 +174,10 @@ public class ProductRepositorySQLite implements IProductRepository {
     @Override
     public List<Product> findPiecesByMasterPrefix(String masterPrefix) {
         List<Product> pieces = new ArrayList<>();
-        String sql = "SELECT code, name, file_extension FROM products WHERE code LIKE ? || '%'";
 
-        // 🚨 CORRECCIÓN: Usar la instancia sqLiteManager
+        // CORRECCIÓN: Agregar 'calculated_cost' (y otros campos útiles) a la consulta
+        String sql = "SELECT code, name, file_extension, peso_filamento_gramos, usage_detail, calculated_cost FROM products WHERE code LIKE ? || '%'";
+
         try (Connection conn = sqLiteManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -168,10 +185,14 @@ public class ProductRepositorySQLite implements IProductRepository {
             ResultSet rs = pstmt.executeQuery();
 
             while (rs.next()) {
+                // CORRECCIÓN: Usar el constructor completo para incluir el costo
                 pieces.add(new Product(
                         rs.getString("code"),
                         rs.getString("name"),
-                        rs.getString("file_extension")
+                        rs.getString("file_extension"),
+                        rs.getDouble("peso_filamento_gramos"),
+                        rs.getString("usage_detail"),
+                        rs.getDouble("calculated_cost") // <--- ¡AQUÍ ESTÁ LA CLAVE!
                 ));
             }
         } catch (SQLException e) {

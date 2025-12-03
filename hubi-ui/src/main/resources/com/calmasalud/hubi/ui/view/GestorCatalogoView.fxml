@@ -167,6 +167,10 @@
                                 <Label text="ARS ($)" GridPane.columnIndex="2" GridPane.rowIndex="8" />
                             </children>
                         </GridPane>
+                        <HBox alignment="CENTER_RIGHT" spacing="10">
+                            <padding><Insets top="10"/></padding>
+                            <Button fx:id="btnGuardarCosto" text="Guardar Costo en Pieza" onAction="#handleGuardarCosto" styleClass="modify-button" disable="true"/>
+                        </HBox>
                         <Region VBox.vgrow="ALWAYS" />
                     </children>
                     <padding>

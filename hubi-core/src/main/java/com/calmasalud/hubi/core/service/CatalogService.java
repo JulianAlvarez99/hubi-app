@@ -195,19 +195,6 @@ public class CatalogService {
         return false;
     }
 
-
-    /**
-     * Procesa la carga de uno o más archivos como un NUEVO PRODUCTO. (REQ 1 - Modificado para List)
-     * @param archivosOrigen Lista de archivos .stl, .3mf, .gcode a cargar.
-     * @param nombreProducto Nombre deseado para el nuevo producto (usado para la carpeta).
-     * @throws IOException Si hay error de validación, creación de directorio, BD o copia/movimiento de archivo.
-     */
-    /**
-     * Procesa la carga de uno o más archivos como un NUEVO PRODUCTO. (REQ 1 - Modificado para List)
-     * @param archivosOrigen Lista de archivos .stl, .3mf, .gcode a cargar.
-     * @param nombreProducto Nombre deseado para el nuevo producto (usado para la carpeta).
-     * @throws IOException Si hay error de validación, creación de directorio, BD o copia/movimiento de archivo.
-     */
     /**
      * Procesa la carga de uno o más archivos como un NUEVO PRODUCTO. (REQ 1 - Modificado para List)
      * Incluye extracción de peso y detalle de consumo para HU3.
@@ -1085,6 +1072,12 @@ public class CatalogService {
         // Eliminación física del registro de la BD
         supplyRepository.delete(id);
         System.out.println("✅ Insumo eliminado permanentemente (Forzado: " + forceDeletion + "): ID " + id);
+    }
+
+    public void updatePieceCost(String code, double cost) {
+        if (code == null || code.isEmpty()) throw new IllegalArgumentException("Código inválido");
+        productRepository.updateProductCost(code, cost);
+        System.out.println("✅ Costo actualizado para " + code + ": $" + cost);
     }
 }
 

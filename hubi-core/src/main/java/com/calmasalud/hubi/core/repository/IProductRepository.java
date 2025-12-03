@@ -14,6 +14,12 @@ public interface IProductRepository {
     // Guarda un objeto Product en la base de datos.
     long save(Product product);
 
+    /**
+     * Actualiza el costo calculado de una pieza específica.
+     * @param code El código de la pieza (ej: SOP01).
+     * @param cost El nuevo costo calculado.
+     */
+    void updateProductCost(String code, double cost);
     // Usado por CatalogService para buscar (correlación/detalles)
     // Busca un Producto (o Pieza) por su Código Único.
     Product findByCode(String code);

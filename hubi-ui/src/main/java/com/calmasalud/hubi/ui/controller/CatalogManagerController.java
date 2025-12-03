@@ -10,6 +10,7 @@ import com.calmasalud.hubi.persistence.repository.MasterProductRepositorySQLite;
 import com.calmasalud.hubi.persistence.repository.ProductCompositionRepositorySQLite;
 import com.calmasalud.hubi.persistence.repository.ProductRepositorySQLite;
 import com.calmasalud.hubi.core.service.CatalogService;
+import com.calmasalud.hubi.ui.util.UISettings;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -128,6 +129,10 @@ public class CatalogManagerController {
 
     @FXML private TextField paramPrecioPorGramo;
     @FXML private TextField paramCosto;
+
+    @FXML private Button btnGuardarCosto;
+    // Variable para rastrear la pieza actual que se está visualizando
+    private String currentPieceCode = null;
 
     private static final File REPOSITORIO_BASE =
             Paths.get(System.getProperty("user.home"), "SistemaHUBI", "RepositorioArchivos").toFile();
@@ -280,6 +285,12 @@ public class CatalogManagerController {
             // Opcional: Devolver el foco al árbol o a la tabla
             folderTreeView.requestFocus();
         });
+
+        // Listener: Si cambia el costo calculado, habilitar el botón si es válido
+        paramCosto.textProperty().addListener((obs, old, newVal) -> {
+            boolean esValido = newVal != null && !newVal.isEmpty() && !newVal.equals("N/D");
+            if(btnGuardarCosto != null) btnGuardarCosto.setDisable(!esValido);
+        });
     }
     //Asegura que el directorio exista y notifica si se crea.
     private boolean ensureRepositoryExists() {
@@ -377,6 +388,15 @@ public class CatalogManagerController {
             // Si no hay .stl, limpiar el visor y mostrar placeholder
             clear3DViewer();
         }
+        // 6. Mantener el código de la pieza actual para futuras operaciones
+        if (fileName.contains(".")) {
+            this.currentPieceCode = fileName.substring(0, fileName.lastIndexOf('.'));
+        } else {
+            this.currentPieceCode = null;
+        }
+        // Si el producto ya tiene un costo guardado en DB, podríamos mostrarlo,
+        // pero aquí estamos calculando uno nuevo basado en el filamento.
+        // La lógica actual recalcula el costo basado en el perfil extraído.
     }
 
     /**
@@ -890,7 +910,7 @@ public class CatalogManagerController {
      * Filtra el árbol de directorios según el texto ingresado.
      */
     private void filtrarCatalogo(String texto) {
-        // Si el texto está vacío, volvemos a cargar todo normal
+        // Si el texto está vacío, volvemos a cargar all normal
         if (texto == null || texto.trim().isEmpty()) {
             refrescarVistaCatalogo();
             return;
@@ -906,7 +926,7 @@ public class CatalogManagerController {
     }
 
     /**
-     * Método recursivo que construye el árbol SOLO con las carpetas que coinciden.
+     * Funcion recursivo que construye el árbol SOLO con las carpetas que coinciden.
      */
     private TreeItem<File> createFilteredNode(File dir, String texto) {
         TreeItem<File> item = new TreeItem<>(dir);
@@ -944,5 +964,27 @@ public class CatalogManagerController {
         }
 
         return null; // Si no cumplo nada, me descarto del árbol
+    }
+
+    @FXML
+    private void handleGuardarCosto() {
+        if (currentPieceCode == null) return;
+
+        try {
+            // Convertir coma a punto por si acaso (locale regional)
+            String costoStr = paramCosto.getText().replace(",", ".");
+            double costo = Double.parseDouble(costoStr);
+
+            catalogoService.updatePieceCost(currentPieceCode, costo);
+
+            Alert alert = new Alert(AlertType.INFORMATION);
+            alert.setTitle("Costo Guardado");
+            alert.setHeaderText(null);
+            alert.setContentText("Se ha guardado el costo de $" + costo + " para la pieza " + currentPieceCode);
+            alert.showAndWait();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

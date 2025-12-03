@@ -1,11 +1,7 @@
 package com.calmasalud.hubi.ui.controller;
 
 // --- IMPORTS MODELOS Y REPOSITORIOS ---
-import com.calmasalud.hubi.core.model.MasterProduct;
-import com.calmasalud.hubi.core.model.MasterProductView;
-import com.calmasalud.hubi.core.model.PieceStockColorView;
-import com.calmasalud.hubi.core.model.Product;
-import com.calmasalud.hubi.core.model.Supply;
+import com.calmasalud.hubi.core.model.*;
 import com.calmasalud.hubi.core.repository.IMasterProductRepository;
 import com.calmasalud.hubi.core.repository.IProductCompositionRepository;
 import com.calmasalud.hubi.core.repository.IProductRepository;
@@ -37,8 +33,11 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class InventarioController {
 
@@ -209,13 +208,23 @@ public class InventarioController {
             TreeItem<MasterProduct> rootItem = new TreeItem<>(null);
 
             for (MasterProduct masterProduct : masterProductsWithStock) {
-                MasterProductView productView = (MasterProductView) masterProduct;
-                TreeItem<MasterProduct> masterNode = new TreeItem<>(productView);
+                // 1. Obtener la Receta (BOM) para saber cuántas de cada pieza se usan
+                List<ProductComposition> composition = productCompositionRepository.getComposition(masterProduct.getMasterCode());
 
-                List<Product> pieces = productRepository.findPiecesByMasterPrefix(productView.getProductPrefix());
+                // Mapa rápido: NombrePieza -> Cantidad Requerida
+                java.util.Map<String, Integer> quantitiesMap = composition.stream()
+                        .collect(java.util.stream.Collectors.toMap(
+                                ProductComposition::getPieceNameBase,
+                                ProductComposition::getRequiredQuantity
+                        ));
+
+                List<Product> pieces = productRepository.findPiecesByMasterPrefix(masterProduct.getProductPrefix());
+                List<TreeItem<MasterProduct>> pieceNodes = new java.util.ArrayList<>();
+
+                double totalMasterCost = 0.0; // Acumulador para el costo del producto final
 
                 for (Product piece : pieces) {
-                    // 1. FILTRO DE EXTENSIÓN: Solo mostrar archivos .gcode
+                    // Solo nos interesan los archivos GCODE (piezas físicas)
                     if (piece.getFileExtension() == null || !piece.getFileExtension().equalsIgnoreCase(".gcode")) {
                         continue;
                     }
@@ -223,49 +232,69 @@ public class InventarioController {
                     String pieceNameBase = piece.getName().substring(0, piece.getName().lastIndexOf('.'));
                     int totalPieceStock = productRepository.getPieceStockQuantity(pieceNameBase);
 
-                    // --- CAMBIO: AQUÍ QUITAMOS EL IF QUE OCULTABA LA PIEZA SI ESTABA EN 0 ---
-                    // Ahora la pieza SIEMPRE se agrega, aunque tenga 0 stock.
+                    // Obtener costo unitario y cantidad requerida por receta
+                    double unitCost = piece.getCost();
+                    int qtyRequired = quantitiesMap.getOrDefault(pieceNameBase, 0); // Si no está en receta, es 0
 
+                    // SUMAR AL TOTAL DEL PADRE (Costo Unitario * Cantidad en Receta)
+                    totalMasterCost += (unitCost * qtyRequired);
+
+                    // Nodo Nivel 2: La PIEZA (Mostramos su Costo Unitario)
                     MasterProductView pieceNodeData = new MasterProductView(
                             piece.getCode(),
-                            productView.getProductPrefix(),
+                            masterProduct.getProductPrefix(),
                             piece.getName(),
-                            "Archivo: " + piece.getFileExtension(),
+                            "Pieza Individual",
                             totalPieceStock,
-                            0.0
+                            unitCost // <--- AQUI VA EL PRECIO DE LA PIEZA
                     );
                     TreeItem<MasterProduct> pieceNode = new TreeItem<>(pieceNodeData);
 
+                    // --- Cargar Nivel 3: Colores (Sin cambios, precio 0 visualmente) ---
                     List<PieceStockColorView> colorStocks = productRepository.getStockByPieceNameBase(pieceNameBase);
-
                     for (PieceStockColorView colorStock : colorStocks) {
-                        // 2. FILTRO DE COLORES: Este SÍ lo mantenemos.
-                        // Si un color específico llega a 0, desaparece de la lista.
                         if (colorStock.getQuantityAvailable() > 0) {
                             MasterProductView colorNodeData = new MasterProductView(
                                     piece.getCode() + "-" + colorStock.getColorName(),
-                                    productView.getProductPrefix(),
+                                    masterProduct.getProductPrefix(),
                                     colorStock.getColorName(),
                                     "Stock por Color",
                                     colorStock.getQuantityAvailable(),
-                                    0.0
+                                    0.0 // El color hereda el precio de la pieza, mostramos 0 o nada
                             );
                             pieceNode.getChildren().add(new TreeItem<>(colorNodeData));
                         }
                     }
 
-                    masterNode.getChildren().add(pieceNode);
+                    // AGREGAR EL NODO DE PIEZA A LA LISTA TEMPORAL
+                    pieceNodes.add(pieceNode);
                 }
+
+                // 2. Crear el Nodo Nivel 1: PRODUCTO MAESTRO con el Costo Total Calculado
+                MasterProductView displayMasterNode = new MasterProductView(
+                        masterProduct.getMasterCode(),
+                        masterProduct.getProductPrefix(),
+                        masterProduct.getProductName(),
+                        masterProduct.getDescription(),
+                        ((MasterProductView) masterProduct).getQuantityAvailable(),
+                        totalMasterCost // <--- TOTAL SUMADO
+                );
+
+                TreeItem<MasterProduct> masterNode = new TreeItem<>(displayMasterNode);
+
+                // 3. ¡IMPORTANTE! AGREGAR LOS HIJOS AL PADRE
+                masterNode.getChildren().addAll(pieceNodes);
+
                 rootItem.getChildren().add(masterNode);
             }
 
             productStockTable.setRoot(rootItem);
             productStockTable.setShowRoot(false);
+            // No expandir por defecto para no saturar, o true si prefieres
             rootItem.setExpanded(true);
 
         } catch (Exception e) {
             e.printStackTrace();
-            productStockTable.setRoot(new TreeItem<>(null));
         }
     }
 
