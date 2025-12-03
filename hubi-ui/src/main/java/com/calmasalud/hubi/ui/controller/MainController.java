@@ -33,7 +33,6 @@ import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 public class MainController {
 
-    public ToggleButton btnReportes;
     public ToggleButton btnConfiguracion;
     @FXML
     private StackPane mainContentArea;
@@ -107,13 +106,6 @@ public class MainController {
         }
     }
 
-    @FXML
-    void handleMenuReportes(ActionEvent event) {
-        System.out.println("Cargando vista Reportes...");
-        // loadView("/com/calmasalud/hubi/ui/view/ReportesView.fxml");
-        mainContentArea.getChildren().clear();
-        mainContentArea.getChildren().add(new Label("Módulo de Reportes (En construcción)"));
-    }
 
     /**
      * AÑADIDO: Manejador para el botón de Configuración.
